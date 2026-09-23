@@ -281,7 +281,7 @@ function ConnectChromePane({
 
 function EmbedPane({
   companyId,
-  url,
+  url: initialUrl,
   companyName,
   frameKey,
 }: {
@@ -290,72 +290,136 @@ function EmbedPane({
   companyName: string;
   frameKey: number;
 }) {
+  const [currentUrl, setCurrentUrl] = useState(initialUrl);
+  const [inputUrl, setInputUrl] = useState(initialUrl);
+  const [key, setKey] = useState(frameKey);
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const { goBack, goForward } = useIframeBrowserNav(iframeRef, Boolean(url));
+  const { goBack, goForward } = useIframeBrowserNav(iframeRef, Boolean(currentUrl));
 
-  if (!url) {
+  useEffect(() => {
+    setCurrentUrl(initialUrl);
+    setInputUrl(initialUrl);
+    setKey((k) => k + 1);
+  }, [initialUrl]);
+
+  if (!currentUrl) {
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 bg-white px-6 text-center">
         <p className="text-sm font-medium text-neutral-700">App wählen</p>
         <p className="max-w-sm text-[12px] text-neutral-400">
-          Iframe-Vorschau ohne echtes Chromium. Für Extensions und Logins:
-          Connect-Chrome.
+          Wähle links eine Anwendung (z. B. Lovable, GitHub, Docs), um sie im integrierten Browser zu öffnen.
         </p>
       </div>
     );
   }
 
+  const handleNavigate = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    let target = inputUrl.trim();
+    if (!target) return;
+    if (!target.startsWith("http://") && !target.startsWith("https://")) {
+      target = "https://" + target;
+    }
+    setCurrentUrl(target);
+    setInputUrl(target);
+    setKey((k) => k + 1);
+  };
+
+  const reload = () => {
+    setKey((k) => k + 1);
+  };
+
+  const openExternally = () => {
+    window.open(currentUrl, "_blank", "noopener,noreferrer");
+  };
+
   return (
-    <div className="relative min-h-0 w-full flex-1 bg-white">
-      <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-2 border-b border-amber-200/80 bg-amber-50 px-3 py-1.5 text-[11px] text-amber-900">
-        <span>
-          Iframe-Vorschau — kein echter Browser. Connect-Chrome für Extensions /
-          Logins.
-        </span>
-        <Button
-          className="h-7 gap-1 text-[11px]"
-          onClick={() => setLabEngine(companyId, "full")}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          <IconBrandChrome className="size-3" />
-          Connect-Chrome
-        </Button>
+    <div className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-white">
+      {/* Modern In-App Browser Navigation Bar */}
+      <div className="flex h-10 shrink-0 items-center gap-2 border-b border-neutral-200 bg-neutral-50/90 px-3 py-1.5 backdrop-blur">
+        <div className="flex items-center gap-1">
+          <Button
+            aria-label="Zurück"
+            className="size-7 rounded-md text-neutral-600 hover:text-neutral-900"
+            onClick={goBack}
+            size="icon"
+            title="Zurück"
+            type="button"
+            variant="ghost"
+          >
+            <IconChevronLeft className="size-4" />
+          </Button>
+          <Button
+            aria-label="Vorwärts"
+            className="size-7 rounded-md text-neutral-600 hover:text-neutral-900"
+            onClick={goForward}
+            size="icon"
+            title="Vorwärts"
+            type="button"
+            variant="ghost"
+          >
+            <IconChevronRight className="size-4" />
+          </Button>
+          <Button
+            aria-label="Neu laden"
+            className="size-7 rounded-md text-neutral-600 hover:text-neutral-900"
+            onClick={reload}
+            size="icon"
+            title="Seite neu laden"
+            type="button"
+            variant="ghost"
+          >
+            <span className="text-xs">↻</span>
+          </Button>
+        </div>
+
+        {/* Address Input */}
+        <form className="flex min-w-0 flex-1 items-center gap-1" onSubmit={handleNavigate}>
+          <input
+            className="h-7 w-full rounded-md border border-neutral-200 bg-white px-2.5 font-mono text-[12px] text-neutral-800 shadow-inner focus:border-sky-500 focus:outline-none"
+            onChange={(e) => setInputUrl(e.target.value)}
+            placeholder="URL eingeben..."
+            type="text"
+            value={inputUrl}
+          />
+        </form>
+
+        <div className="flex items-center gap-1">
+          <Button
+            className="h-7 gap-1 px-2.5 text-[11px] font-medium"
+            onClick={openExternally}
+            size="sm"
+            title="Öffnet die Seite für uneingeschränkte Logins (Google, GitHub, Lovable) im separaten Fenster"
+            type="button"
+            variant="outline"
+          >
+            <span>↗</span>
+            <span className="hidden sm:inline">Neues Fenster</span>
+          </Button>
+          <Button
+            className="h-7 gap-1 px-2 text-[11px]"
+            onClick={() => setLabEngine(companyId, "full")}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            <IconBrandChrome className="size-3" />
+            <span className="hidden sm:inline">Chrome</span>
+          </Button>
+        </div>
       </div>
-      <iframe
-        allow="clipboard-read; clipboard-write; fullscreen; accelerometer; autoplay"
-        className="absolute inset-0 size-full border-0 bg-white pt-9"
-        key={`${frameKey}:${url}`}
-        ref={iframeRef}
-        referrerPolicy="no-referrer-when-downgrade"
-        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals"
-        src={url}
-        title={`${companyName} · Vorschau`}
-      />
-      <div className="pointer-events-none absolute left-3 top-12 z-10 flex gap-1">
-        <Button
-          aria-label="Zurück"
-          className="pointer-events-auto size-8 rounded-full border border-neutral-200 bg-white/90 shadow-sm backdrop-blur"
-          onClick={goBack}
-          size="icon"
-          title="Zurück · Alt← / ⌘["
-          type="button"
-          variant="ghost"
-        >
-          <IconChevronLeft className="size-3.5" />
-        </Button>
-        <Button
-          aria-label="Vorwärts"
-          className="pointer-events-auto size-8 rounded-full border border-neutral-200 bg-white/90 shadow-sm backdrop-blur"
-          onClick={goForward}
-          size="icon"
-          title="Vorwärts · Alt→ / ⌘]"
-          type="button"
-          variant="ghost"
-        >
-          <IconChevronRight className="size-3.5" />
-        </Button>
+
+      {/* Embedded In-App Browser View without restrictive sandbox */}
+      <div className="relative min-h-0 w-full flex-1 bg-white">
+        <iframe
+          allow="clipboard-read; clipboard-write; fullscreen; accelerometer; autoplay; camera; microphone; geolocation"
+          className="absolute inset-0 size-full border-0 bg-white"
+          key={`${key}:${currentUrl}`}
+          ref={iframeRef}
+          referrerPolicy="no-referrer-when-downgrade"
+          src={currentUrl}
+          title={`${companyName} · Browser`}
+        />
       </div>
     </div>
   );
