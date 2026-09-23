@@ -386,7 +386,13 @@ function AppRow({
                 over && "ring-1 ring-sky-400/50",
               )}
               draggable
-              onClick={() => onChange(openLabApp(companyId, app.id))}
+              onClick={() => {
+                const targetUrl = app.url || (getConnection(state, app.id)?.projectUrl);
+                if (targetUrl && (window as any).chrome?.webview?.postMessage) {
+                  (window as any).chrome.webview.postMessage({ type: "navigate", url: targetUrl });
+                }
+                onChange(openLabApp(companyId, app.id));
+              }}
               onDragStart={(event) => {
                 event.dataTransfer.setData(DND_LAB_APP, app.id);
                 if (groupId) {

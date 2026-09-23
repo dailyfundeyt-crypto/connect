@@ -53,6 +53,9 @@ export function Level3SiteStudio({
 
   useEffect(() => {
     setFrameKey((n) => n + 1);
+    if (url && (window as any).chrome?.webview?.postMessage) {
+      (window as any).chrome.webview.postMessage({ type: "navigate", url });
+    }
   }, [url, companyId]);
 
   if (state.starred) {
