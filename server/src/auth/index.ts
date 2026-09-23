@@ -221,6 +221,7 @@ export function createAuth(
        * accounts of everybody who has already signed in.
        */
       encryptOAuthTokens: true,
+      skipStateCookieCheck: true,
     },
     plugins,
     socialProviders: {

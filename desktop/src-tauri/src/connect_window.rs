@@ -107,7 +107,7 @@ pub fn connect_ui_origin(port: u16) -> Option<String> {
         .timeout(Duration::from_millis(800))
         .build()
         .ok()?;
-    for host in ["127.0.0.1", "[::1]"] {
+    for host in ["localhost", "127.0.0.1", "[::1]"] {
         let base = format!("http://{host}:{port}");
         let Ok(response) = client.get(format!("{base}/")).send() else {
             continue;
@@ -178,7 +178,7 @@ pub fn is_loopback_origin(origin: &str) -> bool {
     let Some(host) = url.host_str() else {
         return false;
     };
-    matches!(host, "127.0.0.1" | "::1" | "[::1]") && url.port().is_some()
+    matches!(host, "localhost" | "127.0.0.1" | "::1" | "[::1]") && url.port().is_some()
 }
 
 /// `http://127.0.0.1:3010` + `connect-shell.html`, including a base that has no trailing slash.
@@ -272,9 +272,9 @@ mod tests {
 
     #[test]
     fn only_loopback_http_origins_are_navigable() {
+        assert!(is_loopback_origin("http://localhost:3010"));
         assert!(is_loopback_origin("http://127.0.0.1:3010"));
         assert!(is_loopback_origin("http://[::1]:3010"));
-        assert!(!is_loopback_origin("http://localhost:3010"));
         assert!(!is_loopback_origin("https://127.0.0.1:3010"));
         assert!(!is_loopback_origin("http://127.0.0.1:3010/channel"));
         assert!(!is_loopback_origin("http://example.com:3010"));
