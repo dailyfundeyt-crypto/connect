@@ -1,0 +1,36 @@
+channels:
+  - id: cto
+    name: CTO
+    description: Your stand-in — manage coworkers and speak for your role.
+    permitted_agents: [cto]
+    allowed_groups: []
+  - id: analysis
+    name: Analysis
+    description: Dig into data, policies, and evidence.
+    permitted_agents: [analysis]
+    allowed_groups: []
+  - id: connect
+    name: Connect
+    description: Everyday work companion.
+    permitted_agents: [connect]
+    allowed_groups: []
+  - id: consensus
+    name: Consensus
+    description: Align stakeholders and propose decisions.
+    permitted_agents: [consensus]
+    allowed_groups: []
+  - id: flux
+    name: Flux
+    description: Status, blockers, next action.
+    permitted_agents: [flux]
+    allowed_groups: []
+  - id: hyper
+    name: Hyper
+    description: Fast triage and shipping.
+    permitted_agents: [hyper]
+    allowed_groups: []
+  - id: spark
+    name: Spark
+    description: Creative briefs and fresh angles.
+    permitted_agents: [spark]
+    allowed_groups: []

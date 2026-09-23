@@ -1,0 +1,6 @@
+model:
+  provider: openai
+  credential_secret_ref: openai-api-key
+  # Qwen via OpenAI-compatible gateway (DashScope or self-hosted).
+  # Override with BOT_MODEL / OPENAI_BASE_URL in .env.
+  default_model: qwen-plus

@@ -1,0 +1,35 @@
+Connect — Step 1, natives Windows-Fenster
+Branch: cursor/native-windows-connect-11dc
+
+Dieser Ordner ist der Quellcode. Es ist keine fertige Connect.exe.
+Nicht unter connect-app suchen. Die Startdatei ist:
+
+  OpenBot\START-CONNECT.cmd
+
+Fenster ohne WSL
+1. Bun installieren: https://bun.sh
+2. Rust installieren: https://rustup.rs
+3. WebView2 ist auf Windows 10/11 meist schon da.
+4. PowerShell:
+
+   cd $env:USERPROFILE\Desktop\OpenBot
+   powershell -ExecutionPolicy Bypass -File .\START-CONNECT.ps1 -Dev
+
+Das öffnet ein Fenster mit Titelleiste "Connect" und ohne Adressleiste.
+
+Volle Oberfläche
+WSL ist auf diesem PC nicht installiert. Ohne Docker und eine WSL-Distribution
+bleibt der Startbildschirm. wsl.exe wird dann nicht aufgerufen.
+Ein Cursor-Port auf 3010 oder 3001, der keine Antwort liefert, ist kein Dienst.
+
+Installer erst danach, auf diesem PC:
+
+   cd .\desktop
+   bun install
+   bun run connect:package
+
+Die Setup-Datei liegt dann unter
+desktop\src-tauri\target\release\bundle\nsis\
+und nicht schon auf dem Desktop.
+
+Kein Browser-Embed in diesem Paket.
