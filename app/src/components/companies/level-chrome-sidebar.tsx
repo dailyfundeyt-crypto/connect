@@ -32,6 +32,7 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -166,8 +167,32 @@ export function LevelChromeSidebar(
       </SidebarHeader>
       <SidebarContent className="scroll-fade-b px-1.5 pt-2 group-data-[collapsible=icon]:overflow-y-auto group-data-[collapsible=icon]:overflow-x-hidden group-data-[collapsible=icon]:px-1.5">
         {level === 3 && companyId ? (
-          <div className="group-data-[collapsible=icon]:hidden">
+          <div className="flex min-h-0 flex-1 flex-col gap-2 group-data-[collapsible=icon]:hidden">
             <LabToolsNav companyId={companyId} />
+            <div className="mt-2 border-t border-sidebar-border/40 pt-2">
+              <div className="flex items-center justify-between px-2 mb-1">
+                <SidebarGroupLabel className="h-6 px-0 text-[11px] font-semibold uppercase tracking-[0.06em] text-sidebar-foreground/45">
+                  Agenten
+                </SidebarGroupLabel>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const { isDesktopApp, navigateDesktopBrowser } = await import(
+                      "@/lib/desktop-bridge"
+                    );
+                    if (isDesktopApp()) {
+                      navigateDesktopBrowser("http://localhost:3010/agents");
+                    } else {
+                      void navigate({ to: "/agents" });
+                    }
+                  }}
+                  className="text-[11px] font-medium text-sky-600 hover:text-sky-700 dark:text-sky-400 hover:underline cursor-pointer"
+                >
+                  Übersicht ↗
+                </button>
+              </div>
+              <CompanyAgentsNav searching={false} />
+            </div>
           </div>
         ) : null}
         {level === 3 ? (
@@ -248,7 +273,16 @@ export function LevelChromeSidebar(
                 </div>
                 <DropdownMenuGroup>
                   <DropdownMenuItem
-                    onClick={() => void navigate({ to: "/settings" })}
+                    onClick={async () => {
+                      const { isDesktopApp, navigateDesktopBrowser } = await import(
+                        "@/lib/desktop-bridge"
+                      );
+                      if (isDesktopApp()) {
+                        navigateDesktopBrowser("http://localhost:3010/settings");
+                      } else {
+                        void navigate({ to: "/settings" });
+                      }
+                    }}
                   >
                     <IconSettings />
                     Settings

@@ -247,6 +247,22 @@ export async function ensureAgentBrowserStarted(
         record?.taskUrl?.trim() ||
         "https://manus.im";
     }
+    const { isDesktopApp, navigateDesktopBrowser, notifyDesktopLevel } =
+      await import("@/lib/desktop-bridge");
+    if (isDesktopApp()) {
+      const target =
+        openUrl && openUrl !== "about:blank"
+          ? openUrl
+          : "https://www.google.com";
+      navigateDesktopBrowser(target);
+      notifyDesktopLevel(3);
+      return patchSession(agentId, {
+        mode,
+        status: "running",
+        liveViewUrl: target,
+        message: "Connect Browser wird direkt von diesem Agenten gesteuert.",
+      });
+    }
     try {
       const res = await fetch("/api/connect/open-chrome", {
         method: "POST",

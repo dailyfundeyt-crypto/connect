@@ -89,6 +89,13 @@ async function openChromeProfile(input: {
   agentId: string;
   zgptFolder?: string;
 }): Promise<{ ok: boolean; needsDesktop?: boolean; error?: string }> {
+  const { isDesktopApp, navigateDesktopBrowser, notifyDesktopLevel } =
+    await import("@/lib/desktop-bridge");
+  if (isDesktopApp()) {
+    navigateDesktopBrowser(input.url);
+    notifyDesktopLevel(3);
+    return { ok: true };
+  }
   try {
     const res = await fetch("/api/connect/open-chrome", {
       method: "POST",

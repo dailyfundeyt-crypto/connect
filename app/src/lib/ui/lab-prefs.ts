@@ -6,6 +6,7 @@
  */
 
 import { scheduleConnectWorkspacePush } from "@/lib/companies/workspace-sync";
+import { isDesktopApp, navigateDesktopBrowser } from "@/lib/desktop-bridge";
 
 const KEY = "connect.lab.prefs";
 const EVENT = "connect-lab-prefs-changed";
@@ -102,6 +103,13 @@ export async function openLabUrlInChrome(
   const target = url.trim();
   if (!target) return { ok: false, error: "Keine URL." };
   const withProto = withProtocol(target);
+
+  // Wenn wir in Connect Desktop sind: Steuere direkt DIESEN eingebetteten Chromium-Browser!
+  if (isDesktopApp()) {
+    navigateDesktopBrowser(withProto);
+    return { ok: true };
+  }
+
   try {
     const res = await fetch("/api/connect/open-chrome", {
       method: "POST",

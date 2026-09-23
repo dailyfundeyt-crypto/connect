@@ -26,6 +26,79 @@ export type LabApp = {
 
 /** App icons in the sidebar — agents + humans open them in the Lab browser. */
 export const LAB_APP_ICONS: LabApp[] = [
+  // Technische
+  {
+    id: "markettrace",
+    kind: "browser",
+    label: "MarketTrace | Micro",
+    url: "https://markettrace.io",
+    blurb: "Marktdaten",
+    icon: "chart",
+    tint: "#10B981",
+    builtin: true,
+  },
+  {
+    id: "tradingview",
+    kind: "browser",
+    label: "TradingView - Alle Märkte",
+    url: "https://de.tradingview.com",
+    blurb: "Charts & Analyse",
+    icon: "tradingview",
+    tint: "#2962FF",
+    builtin: true,
+  },
+  {
+    id: "btcusdt",
+    kind: "browser",
+    label: "BTCUSDT | 86386.6",
+    url: "https://de.tradingview.com/symbols/BTCUSDT",
+    blurb: "Krypto Kurs",
+    icon: "bitcoin",
+    tint: "#F59E0B",
+    builtin: true,
+  },
+  {
+    id: "prorealtime",
+    kind: "browser",
+    label: "ProRealTime Web",
+    url: "https://m.prorealtime.com",
+    blurb: "Pro Trading",
+    icon: "activity",
+    tint: "#3B82F6",
+    builtin: true,
+  },
+  {
+    id: "plattform",
+    kind: "browser",
+    label: "Starten Ihrer Plattform",
+    url: "https://prorealtime.com",
+    blurb: "Plattform",
+    icon: "device-desktop",
+    tint: "#6366F1",
+    builtin: true,
+  },
+  // Sentimentalle
+  {
+    id: "allcategories",
+    kind: "browser",
+    label: "All Categories: Live...",
+    url: "https://coinmarketcap.com",
+    blurb: "Markt-Kategorien",
+    icon: "category",
+    tint: "#8B5CF6",
+    builtin: true,
+  },
+  {
+    id: "cryptopanic",
+    kind: "browser",
+    label: "(21) CryptoPanic",
+    url: "https://cryptopanic.com",
+    blurb: "Krypto News & Sentiment",
+    icon: "flame",
+    tint: "#EF4444",
+    builtin: true,
+  },
+  // Build
   {
     id: "lovable",
     kind: "browser",
@@ -84,6 +157,27 @@ export const LAB_APP_ICONS: LabApp[] = [
     blurb: "Docs im Browser",
     icon: "laravel",
     tint: "#FF2D20",
+    builtin: true,
+  },
+  // Pinned Apps
+  {
+    id: "gmail",
+    kind: "browser",
+    label: "Gmail",
+    url: "https://mail.google.com",
+    blurb: "E-Mails & Postfach",
+    icon: "mail",
+    tint: "#EA4335",
+    builtin: true,
+  },
+  {
+    id: "calendar",
+    kind: "browser",
+    label: "Kalender",
+    url: "https://calendar.google.com",
+    blurb: "Termine",
+    icon: "calendar",
+    tint: "#4285F4",
     builtin: true,
   },
 ];
@@ -151,6 +245,26 @@ export const CHROME_WEB_STORE_URL =
 function defaultTabGroups(): LabTabGroup[] {
   return [
     {
+      id: "group-technische",
+      label: "Technische",
+      appIds: ["tradingview", "markettrace", "btcusdt", "prorealtime", "plattform"],
+    },
+    {
+      id: "group-fundamentals",
+      label: "Fundamentals",
+      appIds: [],
+    },
+    {
+      id: "group-sentimentalle",
+      label: "Sentimentalle",
+      appIds: ["cryptopanic", "allcategories"],
+    },
+    {
+      id: "group-sektorielle",
+      label: "Sektorielle",
+      appIds: [],
+    },
+    {
       id: "group-build",
       label: "Build",
       appIds: ["lovable", "cursor", "github", "laravel"],
@@ -205,8 +319,11 @@ export function resolveLabEngine(
 function normalizeGroups(
   groups: LabTabGroup[] | undefined,
 ): LabTabGroup[] {
-  if (Array.isArray(groups) && groups.length > 0) return groups;
-  return defaultTabGroups();
+  if (!Array.isArray(groups) || groups.length === 0) return defaultTabGroups();
+  const defaults = defaultTabGroups();
+  const existingIds = new Set(groups.map((g) => g.id));
+  const missing = defaults.filter((d) => !existingIds.has(d.id));
+  return [...missing, ...groups];
 }
 
 export function getLevel3Browser(companyId: string): Level3BrowserState {

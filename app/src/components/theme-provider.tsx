@@ -32,6 +32,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         document.documentElement.style.colorScheme = scheme;
       },
     });
+    void import("@/lib/desktop-bridge").then((m) => m.notifyDesktopTheme(dark));
   }, [dark]);
 
   return (

@@ -95,6 +95,44 @@ function RouteComponent() {
   // Focus + Messages share AppSidebar. Browser + Unternehmen get slim chrome.
   const hqShell = level === 1 || level === 2;
   const isDesktop = isDesktopApp();
+  const isSidebarRole =
+    typeof window !== "undefined" && (window as any).__CONNECT_SIDEBAR__ === true;
+  const isMainRole =
+    typeof window !== "undefined" && (window as any).__CONNECT_SIDEBAR__ === false;
+
+  // In Connect Desktop: Left pane renders ONLY the sidebar
+  if (isSidebarRole) {
+    return (
+      <div
+        className={
+          hqShell
+            ? "h-svh w-full overflow-hidden"
+            : "lab-light h-svh w-full overflow-hidden bg-background"
+        }
+      >
+        {hqShell ? <AppSidebar /> : <LevelChromeSidebar />}
+      </div>
+    );
+  }
+
+  // In Connect Desktop: Right pane renders ONLY the main content when loading local routes
+  if (isMainRole) {
+    return (
+      <main className="relative flex h-svh w-full min-h-0 flex-1 flex-col overflow-hidden bg-background">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <Outlet />
+        </div>
+        {level === 1 && companyId ? (
+          <FocusOverlay
+            companyId={companyId}
+            initialAgentId={focusAgent}
+          />
+        ) : null}
+      </main>
+    );
+  }
+
+  // Standard web browser fallback: combined sidebar + main
   const hideMainInDesktop = isDesktop && level === 3;
 
   return (

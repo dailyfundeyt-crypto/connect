@@ -33,3 +33,11 @@ export function navigateDesktopBrowser(url: string): void {
 export function notifyDesktopLevel(level: number): void {
   sendDesktopMessage({ type: "level_changed", level });
 }
+
+export function notifyDesktopTheme(dark: boolean): void {
+  sendDesktopMessage({ type: "theme_changed", dark });
+}
+
+export function notifyDesktopAuth(email?: string): void {
+  sendDesktopMessage({ type: "auth_status", email: email || null });
+}

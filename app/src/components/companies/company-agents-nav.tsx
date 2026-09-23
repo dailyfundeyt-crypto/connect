@@ -214,10 +214,17 @@ export function CompanyAgentsNav({
       setSiteMarkAgent(company.id, agent.id);
       return;
     }
+    const { isDesktopApp, navigateDesktopBrowser } = await import(
+      "@/lib/desktop-bridge"
+    );
     const existing = channels.data?.find((ch) =>
       ch.agentIds.includes(agent.id),
     );
     if (existing) {
+      if (isDesktopApp()) {
+        navigateDesktopBrowser(`http://localhost:3010/channel/${existing.id}`);
+        return;
+      }
       await navigate({
         to: "/channel/$channelId",
         params: { channelId: existing.id },
@@ -226,6 +233,10 @@ export function CompanyAgentsNav({
     }
     const channel = await createChannel.mutateAsync([agent.id]);
     queryClient.setQueryData(channelKeys.detail(channel.id), channel);
+    if (isDesktopApp()) {
+      navigateDesktopBrowser(`http://localhost:3010/channel/${channel.id}`);
+      return;
+    }
     await navigate({
       to: "/channel/$channelId",
       params: { channelId: channel.id },
@@ -324,12 +335,21 @@ export function CompanyAgentsNav({
             </ContextMenuItem>
             <ContextMenuItem
               className="gap-2 rounded-lg px-2.5 py-2"
-              onClick={() =>
+              onClick={async () => {
+                const { isDesktopApp, navigateDesktopBrowser } = await import(
+                  "@/lib/desktop-bridge"
+                );
+                if (isDesktopApp()) {
+                  navigateDesktopBrowser(
+                    `http://localhost:3010/agents?agent=${agent.id}&tab=mine`,
+                  );
+                  return;
+                }
                 void navigate({
                   to: "/agents",
                   search: { agent: agent.id, tab: "mine" },
-                })
-              }
+                });
+              }}
             >
               <IconSettings className="size-4" />
               Agent settings
