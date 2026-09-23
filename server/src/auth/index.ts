@@ -223,6 +223,10 @@ export function createAuth(
       encryptOAuthTokens: true,
       skipStateCookieCheck: true,
     },
+    session: {
+      expiresIn: 60 * 60 * 24 * 30, // 30 Tage Login-Dauer
+      updateAge: 60 * 60 * 24, // alle 24h erneuern
+    },
     plugins,
     socialProviders: {
       ...(authConfig.google ? { google: authConfig.google } : {}),
