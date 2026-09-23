@@ -1,0 +1,159 @@
+<Window x:Class="ConnectDesktop.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        Title="Connect Desktop &amp; AI Browser"
+        Width="1400"
+        Height="900"
+        MinWidth="900"
+        MinHeight="600"
+        WindowStartupLocation="CenterScreen"
+        Background="#0F172A">
+  <Window.Resources>
+    <!-- Dark Modern Theme Styles -->
+    <Style TargetType="Button">
+      <Setter Property="Background" Value="#334155" />
+      <Setter Property="Foreground" Value="#F8FAFC" />
+      <Setter Property="BorderBrush" Value="#475569" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="10,4" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="6">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+      <Style.Triggers>
+        <Trigger Property="IsMouseOver" Value="True">
+          <Setter Property="Background" Value="#475569" />
+        </Trigger>
+        <Trigger Property="IsPressed" Value="True">
+          <Setter Property="Background" Value="#1E293B" />
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+
+    <Style TargetType="RadioButton" x:Key="TabButtonStyle">
+      <Setter Property="Background" Value="#1E293B" />
+      <Setter Property="Foreground" Value="#94A3B8" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="16,8" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RadioButton">
+            <Border Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="6"
+                    Margin="0,0,4,0">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}" />
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+      <Style.Triggers>
+        <Trigger Property="IsChecked" Value="True">
+          <Setter Property="Background" Value="#2563EB" />
+          <Setter Property="Foreground" Value="#FFFFFF" />
+        </Trigger>
+        <Trigger Property="IsMouseOver" Value="True">
+          <Setter Property="Foreground" Value="#F1F5F9" />
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+  </Window.Resources>
+
+  <DockPanel>
+    <!-- Top Header & Tabs Bar -->
+    <Border DockPanel.Dock="Top" Background="#1E293B" BorderBrush="#334155" BorderThickness="0,0,0,1" Padding="12,8">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Brand Title -->
+        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
+          <TextBlock Text="⚡ CONNECT" Foreground="#38BDF8" FontWeight="Bold" FontSize="15" VerticalAlignment="Center" Margin="0,0,16,0" />
+          <RadioButton x:Name="TabCompany" Content="🏢 Connect Workspace" Style="{StaticResource TabButtonStyle}" IsChecked="True" Click="TabCompany_Click" />
+          <RadioButton x:Name="TabBrowser" Content="🌐 Echter AI-Browser" Style="{StaticResource TabButtonStyle}" Click="TabBrowser_Click" />
+        </StackPanel>
+
+        <!-- AI Status Badge -->
+        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+          <Border Background="#064E3B" BorderBrush="#059669" BorderThickness="1" CornerRadius="12" Padding="10,4" Margin="0,0,8,0">
+            <StackPanel Orientation="Horizontal">
+              <Ellipse Width="8" Height="8" Fill="#10B981" Margin="0,0,6,0" VerticalAlignment="Center" />
+              <TextBlock x:Name="AiServerStatus" Text="AI Bridge: Aktiv (Port 3002)" Foreground="#6EE7B7" FontSize="11" FontWeight="Medium" VerticalAlignment="Center" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Browser Navigation Bar (Only visible in Browser Tab) -->
+    <Border x:Name="BrowserToolbar" DockPanel.Dock="Top" Background="#0F172A" BorderBrush="#334155" BorderThickness="0,0,0,1" Padding="12,8" Visibility="Collapsed">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Navigation Buttons -->
+        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,8,0">
+          <Button x:Name="BtnBack" Content="◀" Width="36" Height="32" Margin="0,0,4,0" ToolTip="Zurück" Click="BtnBack_Click" />
+          <Button x:Name="BtnForward" Content="▶" Width="36" Height="32" Margin="0,0,4,0" ToolTip="Vor" Click="BtnForward_Click" />
+          <Button x:Name="BtnRefresh" Content="↻" Width="36" Height="32" Margin="0,0,4,0" ToolTip="Neu laden" Click="BtnRefresh_Click" />
+          <Button x:Name="BtnHome" Content="⌂" Width="36" Height="32" ToolTip="Startseite" Click="BtnHome_Click" />
+        </StackPanel>
+
+        <!-- URL Address Bar -->
+        <Border Grid.Column="1" Background="#1E293B" BorderBrush="#475569" BorderThickness="1" CornerRadius="6" Padding="6,2">
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="🔒" Foreground="#94A3B8" VerticalAlignment="Center" Margin="4,0,8,0" FontSize="12" />
+            <TextBox x:Name="AddressBar" Grid.Column="1" Background="Transparent" Foreground="#F8FAFC" BorderThickness="0"
+                     FontSize="13" VerticalContentAlignment="Center" KeyDown="AddressBar_KeyDown" CaretBrush="#38BDF8" />
+          </Grid>
+        </Border>
+
+        <!-- Action Buttons -->
+        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,0,0">
+          <Button x:Name="BtnGo" Content="Öffnen" Width="70" Height="32" Background="#2563EB" BorderBrush="#3B82F6" Click="BtnGo_Click" Margin="0,0,6,0" />
+          <Button x:Name="BtnAiAutomate" Content="🤖 AI Screenshot" Height="32" Background="#7C3AED" BorderBrush="#8B5CF6" Click="BtnAiAutomate_Click" ToolTip="Browserzustand für AI erfassen" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Bottom Status Bar -->
+    <StatusBar DockPanel.Dock="Bottom" Background="#1E293B" Foreground="#94A3B8" BorderBrush="#334155" BorderThickness="0,1,0,0" Padding="8,4">
+      <StatusBarItem>
+        <TextBlock x:Name="StatusText" Text="Connect Desktop bereit" FontSize="12" Foreground="#CBD5E1" />
+      </StatusBarItem>
+      <StatusBarItem HorizontalAlignment="Right">
+        <TextBlock Text="Web-App: http://127.0.0.1:3010 | Automation: http://127.0.0.1:3002" FontSize="11" Foreground="#64748B" />
+      </StatusBarItem>
+    </StatusBar>
+
+    <!-- Content Views (WebView2) -->
+    <Grid Background="#0F172A">
+      <wv2:WebView2 x:Name="CompanyView" Visibility="Visible" />
+      <wv2:WebView2 x:Name="BrowserView" Visibility="Collapsed" />
+    </Grid>
+  </DockPanel>
+</Window>
