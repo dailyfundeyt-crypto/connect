@@ -298,7 +298,7 @@ function HostFoldersSection({
 
   return (
     <PageSection
-      description="Choose folders a Bot can read on this computer. The desktop app asks before each edit or command. Access ends when you stop OpenBot."
+      description="Choose folders a Bot can read on this computer. The desktop app asks before each edit or command. Access ends when you stop Connect."
       title="Folders on this computer"
     >
       {problem ? (

@@ -31,26 +31,19 @@ export const Route = createFileRoute("/_authed/onboarding")({
 function WelcomeStep() {
   return (
     <div className="w-full flex flex-col items-center justify-center">
+      <img
+        src="/brand/connect-logo.png"
+        alt="Connect"
+        className="size-16 rounded-2xl shadow-xl border border-border/60 mb-5"
+      />
       <h1 className="text-3xl font-semibold tracking-tight max-w-md text-center">
-        Welcome to {appConfig.brand.productName}
+        Welcome to Connect
       </h1>
-      <div className="h-32" />
+      <p className="text-sm text-muted-foreground mt-2 text-center max-w-sm">
+        Your self-hosted AI coworker workspace with integrated real browser automation.
+      </p>
+      <div className="h-10" />
       <AgentOrb size="72px" />
-      {/*
-       * A POSTER OF A COMPOSER, AND `pointer-events-none` IS WHAT MAKES IT ONE. Nothing here is
-       * meant to be typed in, clicked or dropped on: it is a picture of the thing the person is
-       * about to get, shown while they read a sentence about it.
-       *
-       * THE DROP THAT PASSES STRAIGHT THROUGH IT IS SOMEBODY ELSE'S TO CATCH, WHICH IS WORTH
-       * SAYING OUT LOUD. The composer guards its own form against a dropped file navigating the
-       * whole app away (`refuseDragOver` in `composer.tsx`), and that guard cannot fire here: an
-       * element with no pointer events is never the target of the drop, so the event goes past it
-       * to the document as if this composer were not on the page. What catches it is
-       * `useUnclaimedDropGuard` in `routes/__root.tsx`, which refuses every drop nobody claimed —
-       * the reason that guard lives at the root rather than in the composer, and the reason this
-       * wrapper does not need to change to be safe. Taking `pointer-events-none` off to "fix" the
-       * drop would turn the poster back into a live composer with nowhere to upload to.
-       */}
       <div className="max-w-md w-full mx-auto pointer-events-none mt-10">
         <Composer
           compact
@@ -67,10 +60,13 @@ function ComputerUseStep() {
   return (
     <div className="w-full flex flex-col items-center justify-center">
       <h1 className="text-3xl font-semibold tracking-tight max-w-md text-center">
-        Each agent has its own computer
+        Each agent has its own computer &amp; real browser
       </h1>
-      <div className="h-8" />
-      <div className="relative aspect-5/3 w-full max-w-lg rounded-2xl overflow-hidden border border-border">
+      <p className="text-sm text-muted-foreground mt-2 text-center max-w-md">
+        Autonomous web browsing, persistent sessions, and tool actions without iframe restrictions.
+      </p>
+      <div className="h-6" />
+      <div className="relative aspect-5/3 w-full max-w-lg rounded-2xl overflow-hidden border border-border shadow-2xl">
         <ComputerPlaceholder className="absolute inset-0 h-full w-full" />
         <DesktopIllustration />
       </div>

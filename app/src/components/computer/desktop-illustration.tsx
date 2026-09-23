@@ -178,10 +178,10 @@ function BrowserWindow({ className }: { className?: string }) {
     <WindowFrame className={className}>
       <div className="flex items-center border-border border-b px-2.5 py-1.5">
         <TrafficLights />
-        {/* The address pill; the empty span mirrors the lights so it centers truly. */}
-        <div className="mx-auto flex h-4.5 w-2/5 items-center justify-center gap-1 rounded-full bg-muted px-2">
-          <IconLock className="size-2.5 text-muted-foreground/60" />
-          <Line className="h-1 w-14 bg-muted-foreground/25" />
+        {/* The address pill */}
+        <div className="mx-auto flex h-4.5 w-1/2 items-center justify-center gap-1.5 rounded-full bg-muted/80 px-2 border border-border/50">
+          <IconLock className="size-2.5 text-emerald-500" />
+          <span className="text-[9px] font-mono text-muted-foreground tracking-tight">connect.local/workspace</span>
         </div>
         <span className="w-11" />
       </div>

@@ -22,6 +22,12 @@ public partial class App : Application
         base.OnStartup(e);
     }
 
+    protected override void OnExit(ExitEventArgs e)
+    {
+        LogException("App.OnExit", new Exception($"ExitCode: {e.ApplicationExitCode}"));
+        base.OnExit(e);
+    }
+
     private static void LogException(string source, Exception? ex)
     {
         try

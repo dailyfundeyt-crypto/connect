@@ -24,31 +24,49 @@ public partial class MainWindow : Window
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
+        var logFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app.log");
         try
         {
+            File.AppendAllText(logFile, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] MainWindow_Loaded starting\n");
             StatusText.Text = "Initialisiere Connect Desktop & AI-Browser…";
 
+            var userDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ConnectDesktop", "WebView2Data");
+            Directory.CreateDirectory(userDataFolder);
+            var env = await CoreWebView2Environment.CreateAsync(null, userDataFolder);
+
             // 1. Initialisiere Workspace-Ansicht
-            await CompanyView.EnsureCoreWebView2Async();
+            await CompanyView.EnsureCoreWebView2Async(env);
             WireCompanyView(CompanyView.CoreWebView2);
             _companyReady = true;
             CompanyView.CoreWebView2.Navigate(ConnectUrl);
+            File.AppendAllText(logFile, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] CompanyView ready\n");
 
             // 2. Initialisiere echten AI-Browser (WebView2)
-            await BrowserView.EnsureCoreWebView2Async();
+            await BrowserView.EnsureCoreWebView2Async(env);
             WireBrowserView(BrowserView.CoreWebView2);
             _browserReady = true;
+            File.AppendAllText(logFile, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] BrowserView ready\n");
 
             // 3. Starte lokalen Automation Server (Port 3002)
-            _automationServer = new BrowserAutomationServer(this, BrowserView, 3002);
-            _automationServer.Start();
-            AiServerStatus.Text = "AI Bridge: Aktiv (Port 3002)";
+            try
+            {
+                _automationServer = new BrowserAutomationServer(this, BrowserView, 3002);
+                _automationServer.Start();
+                AiServerStatus.Text = "AI Bridge: Aktiv (Port 3002)";
+                File.AppendAllText(logFile, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Automation server started\n");
+            }
+            catch (Exception exServer)
+            {
+                File.AppendAllText(logFile, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Automation server failed: {exServer}\n");
+            }
 
             ShowCompanyTab();
             StatusText.Text = "Connect Desktop & AI-Browser bereit";
+            File.AppendAllText(logFile, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] MainWindow_Loaded complete\n");
         }
         catch (Exception ex)
         {
+            File.AppendAllText(logFile, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] MainWindow_Loaded ERROR: {ex}\n");
             MessageBox.Show(
                 "Fehler beim Starten von WebView2:\n\n" + ex.Message +
                 "\n\nBitte sicherstellen, dass die Microsoft Edge WebView2 Runtime installiert ist.",
@@ -60,6 +78,8 @@ public partial class MainWindow : Window
 
     private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        var logFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app.log");
+        File.AppendAllText(logFile, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] MainWindow_Closing triggered (Cancel={e.Cancel})\n");
         _automationServer?.Stop();
     }
 

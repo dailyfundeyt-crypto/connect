@@ -1,0 +1,791 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Connect · Hand-Drawn Canvas Film</title>
+  <style>
+    body {
+      margin: 0;
+      background: #11141a;
+      display: grid;
+      place-items: center;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, sans-serif;
+      color: #e5e7eb;
+    }
+    canvas {
+      max-width: 100vw;
+      max-height: 90vh;
+      object-fit: contain;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+      border-radius: 8px;
+    }
+    .bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 20px;
+      background: #1e232d;
+      border-radius: 9999px;
+      margin-top: 14px;
+    }
+    button {
+      padding: 6px 14px;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    button:hover { background: #2563eb; }
+    #scrub { width: 300px; accent-color: #3b82f6; }
+    #info { font-family: monospace; font-size: 13px; color: #94a3b8; }
+  </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script src="assets/core.js"></script>
+<script src="assets/studio.js"></script>
+<script src="assets/cels.js"></script>
+<script>
+'use strict';
+
+const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+const easeInOutQuad = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+const easeInOutCubic = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+// -------------------------------------------------------------
+// PALETTE & STYLING
+// -------------------------------------------------------------
+const CONNECT_PALETTE = {
+  paper: '#0f172a',        // Deep obsidian navy
+  paperBand: 'rgba(30, 41, 59, 0.4)',
+  ink: '#f8fafc',          // Crisp parchment white
+  night: '#090d16',
+  chalk: '#38bdf8',        // Vivid sky cyan
+  chalkDim: '#0284c7',
+  guide: 'rgba(56, 189, 248, 0.35)',
+  fills: ['#1e293b', '#334155', '#0284c7', '#38bdf8', '#059669', '#10b981'],
+  shade: '#090d16',
+  light: '#ffffff',
+  blush: '#38bdf8',
+  accents: ['#38bdf8', '#60a5fa', '#34d399', '#f59e0b'],
+  inks: ['#0f172a', '#38bdf8', '#60a5fa', '#34d399'],
+  finish: 'ink'
+};
+
+// -------------------------------------------------------------
+// DRAWING UTILITIES & HAND-DRAWN MARKS
+// -------------------------------------------------------------
+function drawHandLine(ctx, x1, y1, x2, y2, color = '#38bdf8', width = 2, wobble = 1.5, seed = 42) {
+  const steps = 14;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  for (let i = 1; i < steps; i++) {
+    const t = i / steps;
+    const nx = lerp(x1, x2, t);
+    const ny = lerp(y1, y2, t);
+    const offset = Math.sin(t * Math.PI * 3 + seed) * wobble;
+    ctx.lineTo(nx + offset, ny + offset * 0.7);
+  }
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawHandRect(ctx, x, y, w, h, opt = {}) {
+  const { color = '#38bdf8', fill = null, width = 2, wobble = 2, radius = 8, seed = 1 } = opt;
+  ctx.save();
+  if (fill) {
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, radius);
+    ctx.fill();
+  }
+  drawHandLine(ctx, x, y, x + w, y, color, width, wobble, seed + 1);
+  drawHandLine(ctx, x + w, y, x + w, y + h, color, width, wobble, seed + 2);
+  drawHandLine(ctx, x + w, y + h, x, y + h, color, width, wobble, seed + 3);
+  drawHandLine(ctx, x, y + h, x, y, color, width, wobble, seed + 4);
+  ctx.restore();
+}
+
+function drawHandCircle(ctx, cx, cy, r, opt = {}) {
+  const { color = '#38bdf8', fill = null, width = 2, wobble = 1.5, seed = 5 } = opt;
+  const segments = 24;
+  ctx.save();
+  if (fill) {
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, TAU);
+    ctx.fill();
+  }
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  for (let i = 0; i <= segments; i++) {
+    const th = (i / segments) * TAU;
+    const wr = r + Math.sin(th * 4 + seed) * wobble;
+    const px = cx + Math.cos(th) * wr;
+    const py = cy + Math.sin(th) * wr;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.stroke();
+  ctx.restore();
+}
+
+// -------------------------------------------------------------
+// SCENE 1: THE ASSIGNMENT & AI COWORKER AWAKENS (0s - 4s)
+// -------------------------------------------------------------
+function scene1(ctx, tau) {
+  // Atmospheric deep ink paper background
+  paper(ctx, CONNECT_PALETTE.paper, CONNECT_PALETTE.paperBand, 12);
+  
+  // Subtle blueprint background grid
+  ctx.save();
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.06)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x <= W; x += 60) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 0; y <= H; y += 60) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  ctx.restore();
+
+  // Header Title with hand-lettering
+  ctx.save();
+  ctx.font = 'bold 36px "Inter", "Segoe UI", sans-serif';
+  ctx.fillStyle = '#94a3b8';
+  ctx.fillText("STEP 01  //  MEET YOUR AI COWORKER", 140, 160);
+
+  ctx.font = 'bold 64px "Inter", "Segoe UI", sans-serif';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText("The AI Assistant Your Company Actually Owns", 140, 240);
+  ctx.restore();
+
+  // Modern Hand-drawn Chat Prompt Box
+  const promptX = 140, promptY = 320, promptW = 760, promptH = 340;
+  const promptAlpha = clamp(tau * 2, 0, 1);
+  ctx.save();
+  ctx.globalAlpha = promptAlpha;
+  drawHandRect(ctx, promptX, promptY, promptW, promptH, {
+    color: '#38bdf8',
+    fill: 'rgba(15, 23, 42, 0.85)',
+    width: 2.5,
+    wobble: 1.8,
+    seed: 10
+  });
+
+  // User chat avatar & title
+  drawHandCircle(ctx, promptX + 60, promptY + 60, 24, { color: '#60a5fa', fill: '#1e293b' });
+  ctx.font = 'bold 20px monospace';
+  ctx.fillStyle = '#60a5fa';
+  ctx.fillText("YOU", promptX + 50, promptY + 66);
+  ctx.fillText("Enterprise Workspace · #agent-ops", promptX + 105, promptY + 66);
+
+  // Animated typed text
+  const fullText = "Connect, open your browser: research competitors,\nverify market pricing & generate an audited summary.";
+  const charCount = Math.floor(clamp((tau - 0.4) * 35, 0, fullText.length));
+  const displayText = fullText.slice(0, charCount);
+
+  ctx.font = '26px "Inter", monospace';
+  ctx.fillStyle = '#f8fafc';
+  const lines = displayText.split('\n');
+  lines.forEach((line, idx) => {
+    ctx.fillText(line, promptX + 60, promptY + 130 + idx * 42);
+  });
+
+  // Cursor blink
+  if (tau > 0.4 && Math.floor(tau * 3) % 2 === 0 && charCount < fullText.length + 5) {
+    const lastLine = lines[lines.length - 1] || '';
+    const lastX = promptX + 60 + ctx.measureText(lastLine).width + 6;
+    const lastY = promptY + 130 + (lines.length - 1) * 42;
+    drawHandLine(ctx, lastX, lastY - 24, lastX, lastY + 4, '#38bdf8', 3, 0);
+  }
+  ctx.restore();
+
+  // AI Coworker Character on the Right Side
+  const charX = 1350, charY = 560;
+  const charPop = easeOutCubic(clamp((tau - 1.2) * 1.5, 0, 1));
+  const breathe = Math.sin(tau * 4) * 6;
+
+  ctx.save();
+  ctx.translate(charX, charY + (1 - charPop) * 80 + breathe);
+  ctx.scale(charPop, charPop);
+
+  // Aura / Glow
+  const glowRad = 160 + Math.sin(tau * 5) * 15;
+  const radGrad = ctx.createRadialGradient(0, 0, 20, 0, 0, glowRad);
+  radGrad.addColorStop(0, 'rgba(56, 189, 248, 0.35)');
+  radGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+  ctx.fillStyle = radGrad;
+  ctx.beginPath();
+  ctx.arc(0, 0, glowRad, 0, TAU);
+  ctx.fill();
+
+  // Hand-drawn AI Avatar / Coworker Figure
+  drawHandCircle(ctx, 0, -40, 95, { color: '#38bdf8', fill: '#1e293b', width: 3.5, wobble: 2 });
+  // Eyes
+  const eyeBlink = (tau > 2.8 && tau < 3.0) ? 0.1 : 1;
+  drawHandCircle(ctx, -32, -45, 12 * eyeBlink, { color: '#38bdf8', fill: '#38bdf8', width: 2 });
+  drawHandCircle(ctx, 32, -45, 12 * eyeBlink, { color: '#38bdf8', fill: '#38bdf8', width: 2 });
+  // Smile
+  ctx.strokeStyle = '#38bdf8';
+  ctx.lineWidth = 4;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(0, -30, 36, 0.25 * Math.PI, 0.75 * Math.PI);
+  ctx.stroke();
+
+  // Headset / Antennas
+  drawHandLine(ctx, -95, -40, -115, -90, '#60a5fa', 3.5, 1.5);
+  drawHandCircle(ctx, -115, -90, 8, { color: '#38bdf8', fill: '#38bdf8' });
+  drawHandLine(ctx, 95, -40, 115, -90, '#60a5fa', 3.5, 1.5);
+  drawHandCircle(ctx, 115, -90, 8, { color: '#38bdf8', fill: '#38bdf8' });
+
+  // Body / Torso
+  drawHandRect(ctx, -85, 80, 170, 140, { color: '#38bdf8', fill: '#0f172a', width: 3, radius: 24, wobble: 2.5 });
+  // Hand waving
+  const waveAngle = Math.sin(tau * 8) * 0.35;
+  ctx.save();
+  ctx.translate(90, 100);
+  ctx.rotate(waveAngle - 0.4);
+  drawHandLine(ctx, 0, 0, 70, -60, '#38bdf8', 4, 2);
+  drawHandCircle(ctx, 70, -60, 16, { color: '#38bdf8', fill: '#1e293b', width: 3 });
+  ctx.restore();
+
+  // Speech bubble: "Starting browser..."
+  if (tau > 2.0) {
+    const bubbleAlpha = clamp((tau - 2.0) * 2, 0, 1);
+    ctx.save();
+    ctx.globalAlpha = bubbleAlpha;
+    drawHandRect(ctx, -260, -200, 240, 70, { color: '#34d399', fill: '#064e3b', width: 2.5, radius: 12, wobble: 1.5 });
+    ctx.font = 'bold 20px "Inter", sans-serif';
+    ctx.fillStyle = '#34d399';
+    ctx.fillText("Launching browser!", -240, -158);
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+// -------------------------------------------------------------
+// SCENE 2: THE REAL BROWSER & AUTOMATED ACTIONS (4s - 8s)
+// -------------------------------------------------------------
+function scene2(ctx, tau) {
+  paper(ctx, CONNECT_PALETTE.paper, CONNECT_PALETTE.paperBand, 18);
+
+  // Header Title
+  ctx.save();
+  ctx.font = 'bold 36px "Inter", "Segoe UI", sans-serif';
+  ctx.fillStyle = '#94a3b8';
+  ctx.fillText("STEP 02  //  THE INTEGRATED REAL BROWSER", 140, 130);
+
+  ctx.font = 'bold 56px "Inter", "Segoe UI", sans-serif';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText("Each Coworker Gets a Real Browser & Computer", 140, 200);
+  ctx.restore();
+
+  // The Hand-drawn Browser Window
+  const bX = 140, bY = 250, bW = 1200, bH = 720;
+  const zoomIn = easeOutCubic(clamp(tau * 1.5, 0, 1));
+
+  ctx.save();
+  ctx.translate(bX, bY);
+  ctx.scale(zoomIn, zoomIn);
+
+  // Outer Window Frame
+  drawHandRect(ctx, 0, 0, bW, bH, {
+    color: '#38bdf8',
+    fill: '#0f172a',
+    width: 3,
+    radius: 14,
+    wobble: 2.2,
+    seed: 20
+  });
+
+  // Titlebar / Tabs Header
+  drawHandLine(ctx, 0, 56, bW, 56, '#38bdf8', 2, 1, 21);
+
+  // Window control buttons (red, yellow, green)
+  drawHandCircle(ctx, 30, 28, 8, { color: '#ef4444', fill: '#ef4444' });
+  drawHandCircle(ctx, 55, 28, 8, { color: '#f59e0b', fill: '#f59e0b' });
+  drawHandCircle(ctx, 80, 28, 8, { color: '#10b981', fill: '#10b981' });
+
+  // Tabs
+  drawHandRect(ctx, 120, 12, 280, 44, { color: '#38bdf8', fill: '#1e293b', width: 2, radius: 8, wobble: 1.2 });
+  ctx.font = 'bold 16px "Inter", sans-serif';
+  ctx.fillStyle = '#38bdf8';
+  ctx.fillText("🌐 Connect Live Browser", 140, 39);
+
+  drawHandRect(ctx, 415, 16, 210, 38, { color: '#475569', fill: '#090d16', width: 1.5, radius: 8, wobble: 1 });
+  ctx.fillStyle = '#64748b';
+  ctx.fillText("📊 Market Intelligence", 435, 41);
+
+  // Address Bar & Controls
+  drawHandLine(ctx, 0, 110, bW, 110, '#334155', 1.8, 1, 22);
+  drawHandRect(ctx, 160, 68, 880, 34, { color: '#38bdf8', fill: '#1e293b', width: 1.8, radius: 8, wobble: 1.2 });
+  ctx.font = '15px monospace';
+  ctx.fillStyle = '#34d399';
+  ctx.fillText("🔒 https://connect.local/workspace/live-session-a89", 185, 90);
+
+  // Navigation arrows
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '18px sans-serif';
+  ctx.fillText("◀   ▶   ↻", 45, 90);
+
+  // Inner Web Page Viewport
+  const pX = 24, pY = 130, pW = bW - 48, pH = bH - 155;
+  drawHandRect(ctx, pX, pY, pW, pH, { color: '#1e293b', fill: '#0a0f1d', width: 1.5, radius: 8 });
+
+  // Web page hand-drawn contents (Graphs, Cards, AI findings)
+  // Card 1: Live Analytics Chart
+  drawHandRect(ctx, pX + 40, pY + 40, 660, 320, { color: '#38bdf8', fill: '#111827', width: 2, radius: 10 });
+  ctx.font = 'bold 20px "Inter", sans-serif';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText("Real-Time Competitor Index", pX + 70, pY + 80);
+
+  // Animated Chart Line
+  const chartProg = clamp((tau - 0.8) * 1.5, 0, 1);
+  const pts = [
+    [pX + 80, pY + 280],
+    [pX + 200, pY + 240],
+    [pX + 320, pY + 270],
+    [pX + 440, pY + 180],
+    [pX + 560, pY + 195],
+    [pX + 660, pY + 120]
+  ];
+  ctx.save();
+  ctx.strokeStyle = '#38bdf8';
+  ctx.lineWidth = 3.5;
+  ctx.beginPath();
+  pts.forEach(([px, py], i) => {
+    const curX = lerp(pts[0][0], px, chartProg);
+    const curY = lerp(pts[0][1], py, chartProg);
+    if (i === 0) ctx.moveTo(curX, curY);
+    else ctx.lineTo(curX, curY);
+  });
+  ctx.stroke();
+
+  // Chart glow dots
+  pts.forEach(([px, py], i) => {
+    if (chartProg >= (i / (pts.length - 1))) {
+      drawHandCircle(ctx, px, py, 6, { color: '#ffffff', fill: '#38bdf8' });
+    }
+  });
+  ctx.restore();
+
+  // Card 2: Extracted Data Table
+  drawHandRect(ctx, pX + 730, pY + 40, 340, 320, { color: '#34d399', fill: '#111827', width: 2, radius: 10 });
+  ctx.font = 'bold 18px "Inter", sans-serif';
+  ctx.fillStyle = '#34d399';
+  ctx.fillText("Data Extraction · 100% OK", pX + 755, pY + 80);
+  ctx.font = '14px monospace';
+  ctx.fillStyle = '#94a3b8';
+  ctx.fillText("✓ Auth Token: Active", pX + 755, pY + 125);
+  ctx.fillText("✓ Profile: Isolated", pX + 755, pY + 165);
+  ctx.fillText("✓ Downloads: /workspace", pX + 755, pY + 205);
+  ctx.fillText("✓ Memory: Encrypted", pX + 755, pY + 245);
+  ctx.fillText("✓ Egress: Attributed", pX + 755, pY + 285);
+
+  // Animated Mouse Cursor moving across the browser
+  const curT = clamp((tau - 1.5) * 0.8, 0, 1);
+  const curX = lerp(pX + 150, pX + 660, curT);
+  const curY = lerp(pY + 280, pY + 120, curT);
+
+  ctx.save();
+  ctx.translate(curX, curY);
+  // Hand-drawn arrow cursor
+  ctx.fillStyle = '#ffffff';
+  ctx.strokeStyle = '#000000';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(0, 24);
+  ctx.lineTo(6, 19);
+  ctx.lineTo(14, 28);
+  ctx.lineTo(19, 24);
+  ctx.lineTo(11, 15);
+  ctx.lineTo(18, 15);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Click ripple effect
+  if (tau > 2.8) {
+    const rip = (tau - 2.8) * 50;
+    ctx.strokeStyle = `rgba(56, 189, 248, ${clamp(1 - rip / 60, 0, 1)})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, rip, 0, TAU);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  ctx.restore(); // end browser window transform
+
+  // Floating Side Highlights (Right Banner)
+  ctx.save();
+  const bannerX = 1400;
+  const badges = [
+    { title: "Real Web Browser", desc: "No mocks · Live headless or headed DOM" },
+    { title: "Per-Bot Isolation", desc: "Independent cookie jars & logins" },
+    { title: "Human Takeover", desc: "Watch live & take the wheel anytime" }
+  ];
+  badges.forEach((b, idx) => {
+    const by = 300 + idx * 140;
+    const bAlpha = clamp((tau - 0.5 - idx * 0.4) * 2, 0, 1);
+    ctx.globalAlpha = bAlpha;
+    drawHandRect(ctx, bannerX, by, 400, 110, { color: '#38bdf8', fill: '#1e293b', width: 2, radius: 12, wobble: 1.5 });
+    drawHandCircle(ctx, bannerX + 45, by + 55, 20, { color: '#38bdf8', fill: '#0f172a' });
+    ctx.font = 'bold 20px "Inter", sans-serif';
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillText("0" + (idx + 1), bannerX + 35, by + 62);
+    ctx.fillText(b.title, bannerX + 85, by + 48);
+    ctx.font = '14px "Inter", sans-serif';
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText(b.desc, bannerX + 85, by + 78);
+  });
+  ctx.restore();
+}
+
+// -------------------------------------------------------------
+// SCENE 3: PRIVACY & AUDITED ENTERPRISE CONTROL (8s - 12s)
+// -------------------------------------------------------------
+function scene3(ctx, tau) {
+  paper(ctx, CONNECT_PALETTE.paper, CONNECT_PALETTE.paperBand, 24);
+
+  // Header Title
+  ctx.save();
+  ctx.font = 'bold 36px "Inter", "Segoe UI", sans-serif';
+  ctx.fillStyle = '#34d399';
+  ctx.fillText("STEP 03  //  ENTERPRISE GOVERNANCE & PRIVACY", 140, 130);
+
+  ctx.font = 'bold 56px "Inter", "Segoe UI", sans-serif';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText("Every Action Decided Before, Recorded After", 140, 200);
+  ctx.restore();
+
+  // Central Vault Shield / Lock Animation
+  const vX = 420, vY = 560;
+  const vScale = easeOutCubic(clamp(tau * 1.6, 0, 1));
+
+  ctx.save();
+  ctx.translate(vX, vY);
+  ctx.scale(vScale, vScale);
+
+  // Big Shield Outline
+  ctx.beginPath();
+  ctx.moveTo(0, -180);
+  ctx.quadraticCurveTo(160, -180, 160, -20);
+  ctx.quadraticCurveTo(160, 140, 0, 210);
+  ctx.quadraticCurveTo(-160, 140, -160, -20);
+  ctx.quadraticCurveTo(-160, -180, 0, -180);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(16, 185, 129, 0.08)';
+  ctx.fill();
+  ctx.strokeStyle = '#10b981';
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  // Padlock in Center
+  const lockPop = easeOutCubic(clamp((tau - 0.4) * 2, 0, 1));
+  ctx.save();
+  ctx.scale(lockPop, lockPop);
+  // Shackle
+  ctx.strokeStyle = '#34d399';
+  ctx.lineWidth = 8;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(0, -45, 45, Math.PI, 0);
+  ctx.stroke();
+  // Body
+  drawHandRect(ctx, -65, -35, 130, 105, { color: '#10b981', fill: '#064e3b', width: 3.5, radius: 18, wobble: 2 });
+  // Keyhole
+  drawHandCircle(ctx, 0, 6, 12, { color: '#ffffff', fill: '#ffffff' });
+  drawHandLine(ctx, 0, 6, 0, 32, '#ffffff', 6, 0);
+  ctx.restore();
+
+  // Shield Title
+  ctx.font = 'bold 22px "Inter", sans-serif';
+  ctx.fillStyle = '#34d399';
+  ctx.textAlign = 'center';
+  ctx.fillText("SECURE VAULT", 0, 135);
+  ctx.font = '15px monospace';
+  ctx.fillStyle = '#94a3b8';
+  ctx.fillText("AES-256 · ZERO RETENTION", 0, 165);
+  ctx.restore();
+
+  // Live Audit Event Stream (Right Column)
+  const logX = 820, logY = 280, logW = 960, logH = 620;
+  drawHandRect(ctx, logX, logY, logW, logH, { color: '#38bdf8', fill: '#0a0f1d', width: 2.5, radius: 14, wobble: 1.8 });
+
+  ctx.font = 'bold 22px monospace';
+  ctx.fillStyle = '#38bdf8';
+  ctx.fillText("LIVE AUDIT TRAIL  [APPEND-ONLY LOG]", logX + 45, logY + 50);
+  drawHandLine(ctx, logX, logY + 70, logX + logW, logY + 70, '#1e293b', 2, 0);
+
+  const auditEvents = [
+    { time: "20:25:01", bot: "coworker-1", action: "BROWSER_START", target: "HEADED_CHROMIUM", status: "ALLOWED" },
+    { time: "20:25:02", bot: "coworker-1", action: "NAVIGATE_PAGE", target: "https://dashboard.internal", status: "ALLOWED" },
+    { time: "20:25:03", bot: "coworker-1", action: "CREDENTIAL_USE", target: "VAULT://GoogleOAuth", status: "VERIFIED" },
+    { time: "20:25:04", bot: "coworker-1", action: "POLICY_ENFORCE", target: "SUBMIT_BLOCK_CHECK", status: "CLEARED" },
+    { time: "20:25:05", bot: "coworker-1", action: "DATA_EXPORT", target: "/workspace/report.pdf", status: "AUDITED" }
+  ];
+
+  auditEvents.forEach((ev, i) => {
+    const evAlpha = clamp((tau - 0.6 - i * 0.5) * 2, 0, 1);
+    const ey = logY + 125 + i * 90;
+    ctx.save();
+    ctx.globalAlpha = evAlpha;
+
+    // Row card
+    drawHandRect(ctx, logX + 30, ey - 30, logW - 60, 72, { color: '#334155', fill: '#111827', width: 1.5, radius: 8 });
+
+    ctx.font = '16px monospace';
+    ctx.fillStyle = '#64748b';
+    ctx.fillText(ev.time, logX + 50, ey + 12);
+
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillText(`[${ev.bot}]`, logX + 160, ey + 12);
+
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillText(ev.action, logX + 320, ey + 12);
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText(ev.target, logX + 510, ey + 12);
+
+    // Status Badge
+    drawHandRect(ctx, logX + 800, ey - 16, 95, 32, { color: '#10b981', fill: 'rgba(16,185,129,0.2)', width: 1.5, radius: 6 });
+    ctx.fillStyle = '#34d399';
+    ctx.font = 'bold 13px monospace';
+    ctx.fillText(ev.status, logX + 815, ey + 6);
+
+    ctx.restore();
+  });
+}
+
+// -------------------------------------------------------------
+// SCENE 4: DELIVERED SUCCESS & BRAND CARD (12s - 16s)
+// -------------------------------------------------------------
+function scene4(ctx, tau) {
+  paper(ctx, CONNECT_PALETTE.paper, CONNECT_PALETTE.paperBand, 33);
+
+  const finishProgress = clamp(tau * 1.5, 0, 1);
+  const logoAlpha = clamp((tau - 0.8) * 1.8, 0, 1);
+
+  // Background subtle radiating connection lines
+  ctx.save();
+  ctx.translate(CX, CY);
+  const ringCount = 5;
+  for (let r = 1; r <= ringCount; r++) {
+    const rad = r * 160;
+    const rot = tau * 0.1 * (r % 2 ? 1 : -1);
+    ctx.save();
+    ctx.rotate(rot);
+    ctx.strokeStyle = `rgba(56, 189, 248, ${0.08 / r})`;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([12, 18]);
+    ctx.beginPath();
+    ctx.arc(0, 0, rad, 0, TAU);
+    ctx.stroke();
+    ctx.restore();
+  }
+  ctx.restore();
+
+  // Grand Logo Presentation
+  ctx.save();
+  ctx.globalAlpha = logoAlpha;
+  ctx.translate(CX, CY - 90);
+
+  // Connect Interconnected Logo Icon
+  const nodeDist = 110;
+  const nodes = [
+    { x: -nodeDist, y: -45, r: 36, col: '#38bdf8' },
+    { x: nodeDist, y: -45, r: 36, col: '#60a5fa' },
+    { x: 0, y: 70, r: 42, col: '#34d399' }
+  ];
+
+  // Connecting strokes between nodes
+  drawHandLine(ctx, nodes[0].x, nodes[0].y, nodes[1].x, nodes[1].y, '#38bdf8', 6, 2, 40);
+  drawHandLine(ctx, nodes[1].x, nodes[1].y, nodes[2].x, nodes[2].y, '#60a5fa', 6, 2, 41);
+  drawHandLine(ctx, nodes[2].x, nodes[2].y, nodes[0].x, nodes[0].y, '#34d399', 6, 2, 42);
+
+  // Center connection core
+  drawHandCircle(ctx, 0, -6, 20, { color: '#ffffff', fill: '#38bdf8', width: 3 });
+
+  // Nodes themselves
+  nodes.forEach(n => {
+    drawHandCircle(ctx, n.x, n.y, n.r, { color: '#ffffff', fill: n.col, width: 4 });
+    drawHandCircle(ctx, n.x, n.y, n.r * 0.45, { color: '#ffffff', fill: '#0f172a', width: 2.5 });
+  });
+
+  // "CONNECT" Main Title
+  ctx.font = 'bold 96px "Inter", "Segoe UI", sans-serif';
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'center';
+  ctx.fillText("CONNECT", 0, 200);
+
+  // Underline gesture
+  drawHandLine(ctx, -240, 225, 240, 225, '#38bdf8', 4, 1.5, 55);
+
+  // Tagline
+  ctx.font = 'bold 36px "Inter", sans-serif';
+  ctx.fillStyle = '#38bdf8';
+  ctx.fillText("The AI Assistant Your Company Can Actually Own", 0, 285);
+
+  // Pillar Highlights
+  ctx.font = '24px monospace';
+  ctx.fillStyle = '#94a3b8';
+  ctx.fillText("REAL BROWSER  •  PER-BOT COMPUTER  •  100% PRIVATE", 0, 335);
+
+  // GitHub Repo Link
+  drawHandRect(ctx, -310, 380, 620, 64, { color: '#34d399', fill: 'rgba(6, 78, 59, 0.4)', width: 2.5, radius: 14, wobble: 1.5 });
+  ctx.font = 'bold 22px monospace';
+  ctx.fillStyle = '#34d399';
+  ctx.fillText("github.com/dailyfundeyt-crypto/connect", 0, 420);
+
+  ctx.restore();
+}
+
+// -------------------------------------------------------------
+// ORIGINAL PROCEDURAL SOUNDTRACK (Synthesized via Web Audio)
+// -------------------------------------------------------------
+function connectScore(ac, t0, destination) {
+  const master = ac.createGain();
+  master.gain.setValueAtTime(0.75, t0);
+  master.gain.setValueAtTime(0.75, t0 + 15);
+  master.gain.linearRampToValueAtTime(0, t0 + 16);
+  master.connect(destination);
+
+  const reverb = ac.createConvolver();
+  const ir = ac.createBuffer(2, Math.floor(ac.sampleRate * 2.5), ac.sampleRate);
+  const random = rng(888);
+  for (let s = 0; s < 2; s++) {
+    const ch = ir.getChannelData(s);
+    for (let i = 0; i < ch.length; i++) {
+      ch[i] = (random() * 2 - 1) * Math.exp(-i / ac.sampleRate * 2.5);
+    }
+  }
+  reverb.buffer = ir;
+  reverb.connect(master);
+
+  const hz = n => 440 * Math.pow(2, (n - 69) / 12);
+
+  // Felt Piano synthesizer
+  function playPiano(midi, t, dur = 2.0, vol = 0.22) {
+    if (t >= 16) return;
+    const g = ac.createGain();
+    const f = ac.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = 2400;
+    g.connect(f);
+    f.connect(master);
+    f.connect(reverb);
+
+    g.gain.setValueAtTime(0, t0 + t);
+    g.gain.linearRampToValueAtTime(vol, t0 + t + 0.01);
+    g.gain.exponentialRampToValueAtTime(vol * 0.3, t0 + t + 0.25);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + t + dur);
+
+    [1, 2, 3].forEach((mul, idx) => {
+      const osc = ac.createOscillator();
+      const og = ac.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = hz(midi) * mul;
+      og.gain.value = 1 / (idx + 1);
+      osc.connect(og);
+      og.connect(g);
+      osc.start(t0 + t);
+      osc.stop(t0 + t + dur + 0.05);
+    });
+  }
+
+  // Chime / Bell for reveals
+  function playBell(midi, t, vol = 0.15) {
+    const g = ac.createGain();
+    g.connect(reverb);
+    g.gain.setValueAtTime(vol, t0 + t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + t + 3.2);
+
+    const osc = ac.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = hz(midi);
+    osc.connect(g);
+    osc.start(t0 + t);
+    osc.stop(t0 + t + 3.3);
+  }
+
+  // Subtle acoustic drum / kick
+  function playKick(t) {
+    const osc = ac.createOscillator();
+    const g = ac.createGain();
+    osc.frequency.setValueAtTime(95, t0 + t);
+    osc.frequency.exponentialRampToValueAtTime(35, t0 + t + 0.18);
+    g.gain.setValueAtTime(0.18, t0 + t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + t + 0.35);
+    osc.connect(g);
+    g.connect(master);
+    osc.start(t0 + t);
+    osc.stop(t0 + t + 0.4);
+  }
+
+  // Harmonic Chord Progressions (Inspiring Major 7th / 9th)
+  // Cmaj9 -> G6 -> Am9 -> Fmaj7
+  const chords = [
+    { t: 0,   notes: [48, 55, 60, 62, 67] }, // C
+    { t: 4,   notes: [43, 50, 55, 59, 62] }, // G
+    { t: 8,   notes: [45, 52, 57, 60, 64] }, // Am
+    { t: 12,  notes: [41, 48, 53, 57, 60] }  // F
+  ];
+
+  chords.forEach(c => {
+    c.notes.forEach((n, idx) => {
+      playPiano(n, c.t + idx * 0.15, 3.2, 0.18);
+    });
+    playKick(c.t);
+    playKick(c.t + 2.0);
+  });
+
+  // Melodic highlights
+  const melody = [
+    [0.8, 72], [1.6, 74], [2.4, 76], [3.2, 79],
+    [4.8, 79], [5.6, 76], [6.4, 74], [7.2, 72],
+    [8.8, 76], [9.6, 79], [10.4, 81], [11.2, 84],
+    [12.5, 84], [13.2, 81], [14.0, 88] // Final signature high note
+  ];
+
+  melody.forEach(([t, n]) => {
+    playPiano(n, t, 1.8, 0.14);
+  });
+
+  // Sound design accents
+  playBell(84, 4.0, 0.18); // Browser reveal chime
+  playBell(88, 8.0, 0.18); // Vault lock chime
+  playBell(96, 12.5, 0.22); // Logo finale chime
+}
+
+// -------------------------------------------------------------
+// TIMELINE & FILM DEFINITION
+// -------------------------------------------------------------
+const TIMELINE = [
+  { name: '01-assignment', dur: 4.0, fn: scene1 },
+  { name: '02-real-browser', dur: 4.0, fn: scene2 },
+  { name: '03-governance-audit', dur: 4.0, fn: scene3 },
+  { name: '04-connect-finale', dur: 4.0, fn: scene4 }
+];
+
+defineFilm({
+  palette: CONNECT_PALETTE,
+  format: { ar: '16:9', width: 1920 },
+  fps: 24,
+  score: connectScore,
+  timeline: TIMELINE
+});
+</script>
+</body>
+</html>
