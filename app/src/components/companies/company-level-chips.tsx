@@ -15,6 +15,7 @@ import {
   setActiveLevel,
   subscribeLevel,
 } from "@/lib/companies/level";
+import { notifyDesktopLevel } from "@/lib/desktop-bridge";
 import { cn } from "@/lib/utils";
 
 /** Focus · Messages · Browser · Unternehmen */
@@ -102,6 +103,7 @@ export function CompanyLevelChips({
             key={value}
             onClick={() => {
               setActiveLevel(value);
+              notifyDesktopLevel(value);
               if (value === 1) return;
               if (value === 2) {
                 void navigate({ to: "/" });

@@ -114,7 +114,11 @@ function SignScreen() {
           variants={{ hidden, shown }}
           className="flex items-center justify-center"
         >
-          <AgentOrb size="56px" />
+          <img
+            alt="Connect"
+            className="size-16 object-contain"
+            src="/brand/connect-logo.png"
+          />
         </motion.div>
         <motion.h1
           className="text-2xl font-medium tracking-tight text-center mt-8"

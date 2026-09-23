@@ -16,6 +16,7 @@ import {
   setActiveLevel,
   subscribeLevel,
 } from "@/lib/companies/level";
+import { isDesktopApp } from "@/lib/desktop-bridge";
 
 export const Route = createFileRoute("/_authed/_app")({
   component: RouteComponent,
@@ -93,6 +94,8 @@ function RouteComponent() {
 
   // Focus + Messages share AppSidebar. Browser + Unternehmen get slim chrome.
   const hqShell = level === 1 || level === 2;
+  const isDesktop = isDesktopApp();
+  const hideMainInDesktop = isDesktop && level === 3;
 
   return (
     <SidebarShell
@@ -104,23 +107,25 @@ function RouteComponent() {
       width={hqShell ? "340px" : "300px"}
     >
       {hqShell ? <AppSidebar /> : <LevelChromeSidebar />}
-      <main
-        className={
-          hqShell
-            ? "relative flex min-h-0 flex-1 flex-col overflow-hidden"
-            : "relative flex min-h-0 flex-1 flex-col overflow-hidden border-l border-neutral-200 bg-white"
-        }
-      >
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <Outlet />
-        </div>
-        {level === 1 && companyId ? (
-          <FocusOverlay
-            companyId={companyId}
-            initialAgentId={focusAgent}
-          />
-        ) : null}
-      </main>
+      {!hideMainInDesktop && (
+        <main
+          className={
+            hqShell
+              ? "relative flex min-h-0 flex-1 flex-col overflow-hidden"
+              : "relative flex min-h-0 flex-1 flex-col overflow-hidden border-l border-neutral-200 bg-white"
+          }
+        >
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <Outlet />
+          </div>
+          {level === 1 && companyId ? (
+            <FocusOverlay
+              companyId={companyId}
+              initialAgentId={focusAgent}
+            />
+          ) : null}
+        </main>
+      )}
     </SidebarShell>
   );
 }

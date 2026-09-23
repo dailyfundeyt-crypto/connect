@@ -24,6 +24,7 @@ import {
   CHROME_START_PATH_HINT,
   openLabUrlInChrome,
 } from "@/lib/ui/lab-prefs";
+import { isDesktopApp, navigateDesktopBrowser } from "@/lib/desktop-bridge";
 
 /**
  * Lab Browser — Connect IS the browser (Host-Chrome + Connect-Profil).
@@ -53,10 +54,14 @@ export function Level3SiteStudio({
 
   useEffect(() => {
     setFrameKey((n) => n + 1);
-    if (url && (window as any).chrome?.webview?.postMessage) {
-      (window as any).chrome.webview.postMessage({ type: "navigate", url });
+    if (url) {
+      navigateDesktopBrowser(url);
     }
   }, [url, companyId]);
+
+  if (isDesktopApp()) {
+    return null;
+  }
 
   if (state.starred) {
     const starredConn = state.starredConnectionToolId

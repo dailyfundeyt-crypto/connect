@@ -48,7 +48,10 @@ export function hasSecurityPassword(): boolean {
 export function isSecurityUnlocked(): boolean {
   if (typeof window === "undefined") return true;
   if (!hasSecurityPassword()) return true;
-  return window.sessionStorage.getItem(UNLOCK_KEY) === "1";
+  return (
+    window.localStorage.getItem(UNLOCK_KEY) === "1" ||
+    window.sessionStorage.getItem(UNLOCK_KEY) === "1"
+  );
 }
 
 export async function setSecurityPassword(password: string): Promise<void> {
@@ -58,6 +61,7 @@ export async function setSecurityPassword(password: string): Promise<void> {
     throw new Error("Passwort muss mindestens 6 Zeichen haben.");
   }
   window.localStorage.setItem(HASH_KEY, await sha256(trimmed));
+  window.localStorage.setItem(UNLOCK_KEY, "1");
   window.sessionStorage.setItem(UNLOCK_KEY, "1");
   window.dispatchEvent(new Event("connect-security-changed"));
 }
@@ -68,6 +72,7 @@ export async function unlockWithPassword(password: string): Promise<boolean> {
   if (!stored) return true;
   const ok = (await sha256(password.trim())) === stored;
   if (ok) {
+    window.localStorage.setItem(UNLOCK_KEY, "1");
     window.sessionStorage.setItem(UNLOCK_KEY, "1");
     window.dispatchEvent(new Event("connect-security-changed"));
   }
@@ -76,6 +81,7 @@ export async function unlockWithPassword(password: string): Promise<boolean> {
 
 export function lockSecurity() {
   if (typeof window === "undefined") return;
+  window.localStorage.removeItem(UNLOCK_KEY);
   window.sessionStorage.removeItem(UNLOCK_KEY);
   window.dispatchEvent(new Event("connect-security-changed"));
 }
@@ -83,6 +89,7 @@ export function lockSecurity() {
 export function clearSecurityPassword() {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(HASH_KEY);
+  window.localStorage.removeItem(UNLOCK_KEY);
   window.sessionStorage.removeItem(UNLOCK_KEY);
   window.dispatchEvent(new Event("connect-security-changed"));
 }

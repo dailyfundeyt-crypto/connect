@@ -6,6 +6,8 @@
  * to the browser so the AI can apply changes. Local websearch runs in Chromium.
  */
 
+import { navigateDesktopBrowser } from "@/lib/desktop-bridge";
+
 export type LabAppKind = "browser" | "computer";
 
 export type LabApp = {
@@ -710,9 +712,13 @@ export function selectLabApp(
   const prev = getLevel3Browser(companyId);
   const app = resolveLabApp(prev, appId);
   const conn = getConnection(prev, appId);
+  const targetUrl = conn?.projectUrl ?? app?.url;
+  if (targetUrl) {
+    navigateDesktopBrowser(targetUrl);
+  }
   return setLevel3Browser(companyId, {
     activeTool: appId,
-    customUrl: conn?.projectUrl ?? app?.url,
+    customUrl: targetUrl,
     browsing: true,
     starred: false,
   });
@@ -724,6 +730,7 @@ export function runLocalWebSearch(
   query: string,
 ): Level3BrowserState {
   const url = localWebSearchUrl(query);
+  navigateDesktopBrowser(url);
   return setLevel3Browser(companyId, {
     activeTool: "custom",
     customUrl: url,

@@ -42,8 +42,7 @@ function WelcomeStep() {
       <p className="text-sm text-muted-foreground mt-2 text-center max-w-sm">
         Your self-hosted AI coworker workspace with integrated real browser automation.
       </p>
-      <div className="h-10" />
-      <AgentOrb size="72px" />
+      <div className="h-4" />
       <div className="max-w-md w-full mx-auto pointer-events-none mt-10">
         <Composer
           compact

@@ -54,13 +54,17 @@ import {
   type Level3BrowserState,
 } from "@/lib/companies/level3-tools";
 import { openLabUrlInChrome } from "@/lib/ui/lab-prefs";
+import { navigateDesktopBrowser } from "@/lib/desktop-bridge";
 import { cn } from "@/lib/utils";
 
 function openLabApp(companyId: string, appId: string): Level3BrowserState {
   const next = selectLabApp(companyId, appId);
+  const url = resolveTabUrl(next);
+  if (url) {
+    navigateDesktopBrowser(url);
+  }
   // Connect-Chrome (`full`) is the browser — always open Host-Chrome.
   if (resolveLabEngine(next.engine) === "full") {
-    const url = resolveTabUrl(next);
     if (url) void openLabUrlInChrome(url);
   }
   return next;
@@ -99,7 +103,10 @@ export function LabToolsNav({ companyId }: { companyId: string }) {
         onSubmit={(e) => {
           e.preventDefault();
           if (!search.trim()) return;
-          setState(runLocalWebSearch(companyId, search));
+          const next = runLocalWebSearch(companyId, search);
+          setState(next);
+          const url = resolveTabUrl(next);
+          navigateDesktopBrowser(url);
         }}
       >
         <div className="relative">
@@ -388,8 +395,8 @@ function AppRow({
               draggable
               onClick={() => {
                 const targetUrl = app.url || (getConnection(state, app.id)?.projectUrl);
-                if (targetUrl && (window as any).chrome?.webview?.postMessage) {
-                  (window as any).chrome.webview.postMessage({ type: "navigate", url: targetUrl });
+                if (targetUrl) {
+                  navigateDesktopBrowser(targetUrl);
                 }
                 onChange(openLabApp(companyId, app.id));
               }}
