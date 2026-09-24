@@ -65,21 +65,36 @@ function Start-UiIfNeeded {
 }
 
 Write-Host ""
-Write-Host "[Connect] Starte Connect Desktop (openbot-desktop.exe)..." -ForegroundColor Cyan
+Write-Host "[Connect] Starte Connect Desktop (WPF + WebView2)..." -ForegroundColor Cyan
 
-$release = Join-Path $desktop "src-tauri\target\release\openbot-desktop.exe"
-$debug = Join-Path $desktop "src-tauri\target\debug\openbot-desktop.exe"
+# Reihenfolge der Exe-Suche:
+#  1) desktop/connect-browser/bin/Release/.../Connect Desktop.exe  (WPF + WebView2, mit Comet-Browser)
+#  2) desktop/connect-browser/bin/Debug/.../Connect Desktop.exe    (WPF Debug)
+#  3) desktop/src-tauri/target/release/openbot-desktop.exe         (Tauri-Fallback, kein Comet-Browser)
+#  4) desktop/src-tauri/target/debug/openbot-desktop.exe           (Tauri Debug)
+$wpfRelease = Join-Path $desktop "connect-browser\bin\Release\net8.0-windows\Connect Desktop.exe"
+$wpfDebug   = Join-Path $desktop "connect-browser\bin\Debug\net8.0-windows\Connect Desktop.exe"
+$tauriRelease = Join-Path $desktop "src-tauri\target\release\openbot-desktop.exe"
+$tauriDebug   = Join-Path $desktop "src-tauri\target\debug\openbot-desktop.exe"
 
 $exe = $null
-if (Test-Path $release) { $exe = $release }
-elseif (Test-Path $debug) { $exe = $debug }
+$exeKind = "none"
+if (Test-Path $wpfRelease)    { $exe = $wpfRelease;    $exeKind = "WPF-Release" }
+elseif (Test-Path $wpfDebug)  { $exe = $wpfDebug;      $exeKind = "WPF-Debug" }
+elseif (Test-Path $tauriRelease) { $exe = $tauriRelease; $exeKind = "Tauri-Release" }
+elseif (Test-Path $tauriDebug)   { $exe = $tauriDebug;   $exeKind = "Tauri-Debug" }
 
 if ($exe) {
     if (-not $Schnell) { Start-UiIfNeeded }
-    Write-Host "[Connect] Starte: $exe" -ForegroundColor Green
-    Start-Process -FilePath $exe -WorkingDirectory $desktop
+    Write-Host "[Connect] Starte ($exeKind): $exe" -ForegroundColor Green
+    Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe -Parent)
     exit 0
 }
 
-Write-Host "[Connect] FEHLER: openbot-desktop.exe nicht gefunden." -ForegroundColor Red
+Write-Host "[Connect] FEHLER: Weder Connect Desktop.exe (WPF) noch openbot-desktop.exe (Tauri) gefunden." -ForegroundColor Red
+Write-Host "  Erwartet unter:" -ForegroundColor Yellow
+Write-Host "    $wpfRelease" -ForegroundColor Yellow
+Write-Host "    $wpfDebug" -ForegroundColor Yellow
+Write-Host "    $tauriRelease" -ForegroundColor Yellow
+Write-Host "    $tauriDebug" -ForegroundColor Yellow
 exit 1

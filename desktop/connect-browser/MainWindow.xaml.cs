@@ -59,7 +59,14 @@ public partial class MainWindow : Window
             }
             catch (Exception exServer)
             {
+                AiServerStatus.Text = $"AI Bridge: FEHLER (Port 3002 belegt?)";
                 File.AppendAllText(logFile, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Automation server failed: {exServer}\n");
+                MessageBox.Show(
+                    "BrowserAutomationServer konnte auf Port 3002 nicht starten.\n\n" +
+                    "Häufigste Ursache: Port 3002 ist durch eine andere Instanz belegt.\n\nDetails siehe app.log.",
+                    "Connect Desktop – AI Bridge",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
             }
 
             ShowBrowserTab();
