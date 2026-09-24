@@ -59,7 +59,7 @@ export function Level3SiteStudio({
     }
   }, [url, companyId]);
 
-  if (isDesktopApp()) {
+  if (isDesktopApp() && url) {
     return null;
   }
 

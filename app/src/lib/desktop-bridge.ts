@@ -10,6 +10,22 @@ export function isDesktopApp(): boolean {
   );
 }
 
+// Automatically forward WebView2 incoming messages to the standard window 'message' event
+// so that React components (like CometSlideOver) receive WPF host messages seamlessly.
+if (typeof window !== "undefined") {
+  const wv = (window as any).chrome?.webview;
+  if (wv?.addEventListener && !(window as any).__CONNECT_BRIDGE_INITIALIZED__) {
+    (window as any).__CONNECT_BRIDGE_INITIALIZED__ = true;
+    try {
+      wv.addEventListener("message", (event: { data: unknown }) => {
+        window.dispatchEvent(new MessageEvent("message", { data: event.data }));
+      });
+    } catch {
+      // Ignore if already attached
+    }
+  }
+}
+
 export function sendDesktopMessage(payload: {
   type: string;
   [key: string]: unknown;

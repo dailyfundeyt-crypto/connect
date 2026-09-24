@@ -1,5 +1,6 @@
 .worktrees/
 .superpowers/
+EinfacherBrowser/
 
 # Claude Code: .claude/skills/ is shared, the rest is local state
 .claude/worktrees/

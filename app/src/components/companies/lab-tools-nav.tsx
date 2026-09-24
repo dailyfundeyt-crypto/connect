@@ -69,8 +69,8 @@ function openLabApp(companyId: string, appId: string): Level3BrowserState {
   if (url) {
     navigateDesktopBrowser(url);
   }
-  // Connect-Chrome (`full`) is the browser — always open Host-Chrome.
-  if (resolveLabEngine(next.engine) === "full") {
+  // Connect-Chrome (`full`) is the browser — when NOT in desktop app, open Host-Chrome.
+  if (!isDesktopApp() && resolveLabEngine(next.engine) === "full") {
     if (url) void openLabUrlInChrome(url);
   }
   return next;
