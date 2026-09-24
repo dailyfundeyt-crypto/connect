@@ -227,7 +227,17 @@ export type LabTabGroup = {
   /** App ids in this group. */
   appIds: string[];
   collapsed?: boolean;
+  /** Optional Arc-style accent (used by the sidebar to color the folder). */
+  accent?: GroupAccent;
 };
+
+export type GroupAccent =
+  | "technische"
+  | "fundamentals"
+  | "sentimentalle"
+  | "sektorielle"
+  | "build"
+  | "ai";
 
 const KEY = "connect.level3.browser";
 const EVENT = "connect-level3-browser-changed";
@@ -247,31 +257,37 @@ function defaultTabGroups(): LabTabGroup[] {
     {
       id: "group-technische",
       label: "Technische",
+      accent: "technische",
       appIds: ["tradingview", "markettrace", "btcusdt", "prorealtime", "plattform"],
     },
     {
       id: "group-fundamentals",
       label: "Fundamentals",
+      accent: "fundamentals",
       appIds: [],
     },
     {
       id: "group-sentimentalle",
       label: "Sentimentalle",
+      accent: "sentimentalle",
       appIds: ["cryptopanic", "allcategories"],
     },
     {
       id: "group-sektorielle",
       label: "Sektorielle",
+      accent: "sektorielle",
       appIds: [],
     },
     {
       id: "group-build",
       label: "Build",
+      accent: "build",
       appIds: ["lovable", "cursor", "github", "laravel"],
     },
     {
       id: "group-ai",
       label: "AI",
+      accent: "ai",
       appIds: ["claude", "chatgpt"],
     },
   ];

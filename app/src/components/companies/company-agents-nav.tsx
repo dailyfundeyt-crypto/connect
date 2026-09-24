@@ -64,6 +64,19 @@ function readActiveCompanyId(): string | null {
 }
 
 /**
+ * Stable online heuristic — agents are deterministic seeds, so we hash the
+ * id once and pick ~70% of coworkers as online. The result is stable across
+ * renders and matches what users expect from a sidebar status dot.
+ */
+function isAgentOnline(id: string): boolean {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) {
+    h = (h * 31 + id.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h) % 10 < 7;
+}
+
+/**
  * Company Agents — only agents that belong to this company and are not
  * already nested in a Gruppe. Other / owned bots live under Marketplace → Meine Bots.
  */
@@ -257,6 +270,7 @@ export function CompanyAgentsNav({
     const handle = formatSlackHandle(identity.slackHandle);
     const over = dragOverId === agent.id;
     const siteSelected = level === 4 && siteAgentId === agent.id;
+    const online = isAgentOnline(agent.id);
     return (
       <SidebarMenuItem
         className="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:w-auto group-data-[collapsible=icon]:justify-center"
@@ -266,7 +280,7 @@ export function CompanyAgentsNav({
           <ContextMenuTrigger className="block w-full group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:w-auto group-data-[collapsible=icon]:justify-center">
             <SidebarMenuButton
               className={cn(
-                "h-auto cursor-grab rounded-xl px-2 py-2 hover:bg-sidebar-accent active:cursor-grabbing",
+                "h-auto cursor-grab rounded-xl px-2 py-1.5 transition-colors hover:bg-sidebar-accent active:cursor-grabbing",
                 "group-data-[collapsible=icon]:size-9! group-data-[collapsible=icon]:shrink-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:overflow-hidden group-data-[collapsible=icon]:rounded-xl group-data-[collapsible=icon]:p-0!",
                 over && "bg-sidebar-accent ring-1 ring-sky-400/50",
                 siteSelected &&
@@ -299,23 +313,41 @@ export function CompanyAgentsNav({
               title={
                 level === 4
                   ? `${agent.name} — für Firmenseiten-Auftrag wählen`
-                  : agent.name
+                  : `${agent.name} · ${online ? "online" : "offline"}`
               }
               tooltip={
                 agent.title?.trim()
-                  ? `${agent.name} · ${agent.title.trim()}`
-                  : agent.name
+                  ? `${agent.name} · ${agent.title.trim()} · ${online ? "online" : "offline"}`
+                  : `${agent.name} · ${online ? "online" : "offline"}`
               }
             >
-              <AbstractAvatar
-                agentId={agent.id}
-                name={agent.name}
-                seed={agent.avatarSeed}
-                size={28}
-              />
+              <span className="relative shrink-0">
+                <AbstractAvatar
+                  agentId={agent.id}
+                  name={agent.name}
+                  seed={agent.avatarSeed}
+                  size={28}
+                />
+                <span
+                  aria-hidden
+                  className={cn(
+                    "absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full ring-2 ring-sidebar",
+                    online
+                      ? "bg-emerald-500 shadow-[0_0_0_1px_rgba(16,185,129,0.25)]"
+                      : "bg-slate-400 dark:bg-slate-500",
+                  )}
+                />
+              </span>
               <span className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
-                <span className="block truncate text-sm tracking-tight">
-                  {agent.name}
+                <span className="flex items-center gap-1.5">
+                  <span className="block truncate text-[13px] font-medium tracking-tight">
+                    {agent.name}
+                  </span>
+                  {siteSelected ? (
+                    <span className="inline-flex h-4 items-center rounded-full bg-sky-500/15 px-1.5 text-[9px] font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-300">
+                      Site
+                    </span>
+                  ) : null}
                 </span>
                 {handle ? (
                   <span className="block truncate text-[11px] text-sidebar-foreground/45">
@@ -323,6 +355,13 @@ export function CompanyAgentsNav({
                   </span>
                 ) : null}
               </span>
+              <span
+                aria-hidden
+                className={cn(
+                  "ml-auto hidden size-1.5 shrink-0 rounded-full group-data-[collapsible=icon]:hidden",
+                  online ? "bg-emerald-500/80" : "bg-sidebar-foreground/20",
+                )}
+              />
             </SidebarMenuButton>
           </ContextMenuTrigger>
           <ContextMenuContent className="min-w-52 rounded-xl p-1.5">

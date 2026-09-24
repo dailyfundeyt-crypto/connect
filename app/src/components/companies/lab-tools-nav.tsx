@@ -1,7 +1,13 @@
 import {
+  IconBrain,
+  IconChartCandle,
+  IconChartPie,
+  IconComponents,
   IconDiamond,
   IconFolder,
   IconFolderPlus,
+  IconHammer,
+  IconNews,
   IconPlus,
   IconPlugConnected,
   IconSearch,
@@ -69,6 +75,96 @@ function openLabApp(companyId: string, appId: string): Level3BrowserState {
   }
   return next;
 }
+
+type GroupVisual = {
+  icon: typeof IconFolder;
+  accent: string;
+  ring: string;
+  pill: string;
+  pillText: string;
+};
+
+const GROUP_VISUALS: Record<string, GroupVisual> = {
+  "group-technische": {
+    icon: IconChartCandle,
+    accent: "from-sky-500/90 to-cyan-500/90",
+    ring: "ring-sky-400/30",
+    pill: "bg-sky-500/12 text-sky-600 dark:text-sky-300",
+    pillText: "text-sky-700 dark:text-sky-200",
+  },
+  "group-fundamentals": {
+    icon: IconChartPie,
+    accent: "from-emerald-500/90 to-teal-500/90",
+    ring: "ring-emerald-400/30",
+    pill: "bg-emerald-500/12 text-emerald-600 dark:text-emerald-300",
+    pillText: "text-emerald-700 dark:text-emerald-200",
+  },
+  "group-sentimentalle": {
+    icon: IconNews,
+    accent: "from-rose-500/90 to-pink-500/90",
+    ring: "ring-rose-400/30",
+    pill: "bg-rose-500/12 text-rose-600 dark:text-rose-300",
+    pillText: "text-rose-700 dark:text-rose-200",
+  },
+  "group-sektorielle": {
+    icon: IconComponents,
+    accent: "from-amber-500/90 to-orange-500/90",
+    ring: "ring-amber-400/30",
+    pill: "bg-amber-500/12 text-amber-700 dark:text-amber-300",
+    pillText: "text-amber-700 dark:text-amber-200",
+  },
+  "group-build": {
+    icon: IconHammer,
+    accent: "from-violet-500/90 to-indigo-500/90",
+    ring: "ring-violet-400/30",
+    pill: "bg-violet-500/12 text-violet-600 dark:text-violet-300",
+    pillText: "text-violet-700 dark:text-violet-200",
+  },
+  "group-ai": {
+    icon: IconBrain,
+    accent: "from-fuchsia-500/90 to-purple-500/90",
+    ring: "ring-fuchsia-400/30",
+    pill: "bg-fuchsia-500/12 text-fuchsia-600 dark:text-fuchsia-300",
+    pillText: "text-fuchsia-700 dark:text-fuchsia-200",
+  },
+};
+
+const FALLBACK_VISUAL: GroupVisual = {
+  icon: IconFolder,
+  accent: "from-slate-500/80 to-slate-400/80",
+  ring: "ring-slate-400/30",
+  pill: "bg-slate-500/12 text-slate-600 dark:text-slate-300",
+  pillText: "text-slate-700 dark:text-slate-200",
+};
+
+function visualFor(groupId: string): GroupVisual {
+  return GROUP_VISUALS[groupId] ?? FALLBACK_VISUAL;
+}
+
+const ChevronDownIcon = ({
+  open,
+  className,
+}: {
+  open: boolean;
+  className?: string;
+}) => (
+  <svg
+    aria-hidden
+    className={cn(
+      "size-3.5 shrink-0 text-sidebar-foreground/45 transition-transform duration-300 ease-out",
+      open ? "rotate-0" : "-rotate-90",
+      className,
+    )}
+    fill="none"
+    stroke="currentColor"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    strokeWidth={1.75}
+    viewBox="0 0 24 24"
+  >
+    <path d="m6 9 6 6 6-6" />
+  </svg>
+);
 
 /**
  * Lab Browser sidebar — same folder UX as Messages Gruppen:
@@ -151,12 +247,14 @@ export function LabToolsNav({ companyId }: { companyId: string }) {
             {groups.map((group) => {
               const open = !group.collapsed;
               const folderDrop = dragOverId === `group:${group.id}`;
+              const visual = visualFor(group.id);
+              const FolderIcon = visual.icon;
               return (
                 <li key={group.id}>
                   <ContextMenu>
                     <ContextMenuTrigger
                       className={cn(
-                        "flex w-full cursor-grab items-center gap-2.5 rounded-xl px-2 py-2 text-left hover:bg-sidebar-accent active:cursor-grabbing",
+                        "group/folder flex w-full cursor-grab items-center gap-2.5 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-sidebar-accent active:cursor-grabbing",
                         folderDrop && "bg-sidebar-accent ring-1 ring-sky-400/50",
                       )}
                       draggable
@@ -209,16 +307,36 @@ export function LabToolsNav({ companyId }: { companyId: string }) {
                         }
                       }}
                     >
-                      <LabFolderIcon apps={group.apps} />
+                      <span
+                        aria-hidden
+                        className={cn(
+                          "relative flex size-7 shrink-0 items-center justify-center rounded-[9px] bg-gradient-to-br shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] ring-1 transition-transform duration-200 group-hover/folder:scale-[1.04]",
+                          visual.accent,
+                          visual.ring,
+                        )}
+                      >
+                        <FolderIcon
+                          className="size-3.5 text-white drop-shadow-[0_1px_0_rgba(0,0,0,0.25)]"
+                          stroke={1.75}
+                        />
+                        {group.apps.some((a) => a.builtin === false) ? (
+                          <span className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-amber-400 ring-1 ring-sidebar" />
+                        ) : null}
+                      </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm tracking-tight">
+                        <span className="block truncate text-[13px] font-medium tracking-tight">
                           {group.label}
                         </span>
-                        <span className="block truncate text-[11px] text-sidebar-foreground/45">
-                          {group.apps.length} App
-                          {group.apps.length === 1 ? "" : "s"}
-                        </span>
                       </span>
+                      <span
+                        className={cn(
+                          "ml-1 inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold tabular-nums",
+                          visual.pill,
+                        )}
+                      >
+                        {group.apps.length}
+                      </span>
+                      <ChevronDownIcon open={open} className="ml-1" />
                     </ContextMenuTrigger>
                     <ContextMenuContent className="min-w-52 rounded-xl p-1.5">
                       <ContextMenuItem
@@ -257,26 +375,32 @@ export function LabToolsNav({ companyId }: { companyId: string }) {
                   </ContextMenu>
 
                   {open ? (
-                    <ul className="mt-0.5 flex flex-col gap-0.5 pl-2">
-                      {group.apps.length === 0 ? (
-                        <li className="px-2 py-1.5 text-[11px] text-sidebar-foreground/35">
-                          Leerer Ordner — App hierher ziehen
-                        </li>
-                      ) : (
-                        group.apps.map((app) => (
-                          <AppRow
-                            app={app}
-                            companyId={companyId}
-                            dragOverId={dragOverId}
-                            groupId={group.id}
-                            key={`${group.id}-${app.id}`}
-                            onChange={setState}
-                            onConnect={setConnectId}
-                            setDragOverId={setDragOverId}
-                            state={state}
-                          />
-                        ))
+                    <ul
+                      className={cn(
+                        "mt-0.5 grid gap-0.5 pl-2 transition-all duration-300 ease-out",
                       )}
+                    >
+                      <div className="min-h-0 overflow-hidden">
+                        {group.apps.length === 0 ? (
+                          <li className="px-2 py-1.5 text-[11px] text-sidebar-foreground/35">
+                            Leerer Ordner — App hierher ziehen
+                          </li>
+                        ) : (
+                          group.apps.map((app) => (
+                            <AppRow
+                              app={app}
+                              companyId={companyId}
+                              dragOverId={dragOverId}
+                              groupId={group.id}
+                              key={`${group.id}-${app.id}`}
+                              onChange={setState}
+                              onConnect={setConnectId}
+                              setDragOverId={setDragOverId}
+                              state={state}
+                            />
+                          ))
+                        )}
+                      </div>
                     </ul>
                   ) : null}
                 </li>
@@ -388,8 +512,8 @@ function AppRow({
           <SidebarMenuItem>
             <button
               className={cn(
-                "flex h-auto w-full cursor-grab items-center gap-2 rounded-xl px-2 py-2 text-left hover:bg-sidebar-accent active:cursor-grabbing",
-                active && "bg-sidebar-accent",
+                "group/row flex h-auto w-full cursor-grab items-center gap-2.5 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-sidebar-accent active:cursor-grabbing",
+                active && "bg-sidebar-accent/80 shadow-[inset_0_0_0_1px_var(--sidebar-border)]",
                 over && "ring-1 ring-sky-400/50",
               )}
               draggable
@@ -451,18 +575,19 @@ function AppRow({
               type="button"
             >
               <ToolGlyph icon={app.icon} tint={app.tint} />
-              <span className="min-w-0 flex-1 truncate text-sm tracking-tight">
+              <span className="min-w-0 flex-1 truncate text-[13px] tracking-tight">
                 {app.label}
               </span>
               {conn ? (
                 <span
+                  aria-label="Verbunden"
                   className="flex shrink-0 items-center"
                   onClick={(e) => e.stopPropagation()}
                   onKeyDown={(e) => e.stopPropagation()}
                 >
                   <button
                     aria-label={`${app.label} starten`}
-                    className="rounded-md p-1 text-sidebar-foreground/35 hover:text-amber-500"
+                    className="rounded-md p-1 text-amber-500/80 transition-colors hover:text-amber-500"
                     onClick={() => onChange(starSoftware(companyId, app.id))}
                     title="★ Software starten"
                     type="button"
@@ -470,7 +595,12 @@ function AppRow({
                     <IconStar className="size-3.5" stroke={1.5} />
                   </button>
                 </span>
-              ) : null}
+              ) : (
+                <span
+                  aria-hidden
+                  className="size-1.5 shrink-0 rounded-full bg-sidebar-foreground/25 transition-colors group-hover/row:bg-sidebar-foreground/50"
+                />
+              )}
             </button>
           </SidebarMenuItem>
         </ContextMenuTrigger>
@@ -582,6 +712,8 @@ export function LabIconRail({
 
       {groups.map((group) => {
         const open = !group.collapsed;
+        const visual = visualFor(group.id);
+        const FolderIcon = visual.icon;
         return (
           <div
             className={cn(
@@ -597,8 +729,10 @@ export function LabIconRail({
                     aria-expanded={open}
                     aria-label={`${group.label} · ${group.apps.length} Apps`}
                     className={cn(
-                      "flex size-9 items-center justify-center rounded-[10px] transition-colors hover:bg-sidebar-accent",
-                      open && "ring-1 ring-sky-400/60",
+                      "relative flex size-9 items-center justify-center overflow-hidden rounded-[10px] bg-gradient-to-br shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] ring-1 transition-transform duration-200 hover:scale-[1.04]",
+                      visual.accent,
+                      visual.ring,
+                      open && "ring-2",
                     )}
                     onClick={() =>
                       setState(
@@ -607,7 +741,10 @@ export function LabIconRail({
                     }
                     type="button"
                   >
-                    <LabFolderIcon apps={group.apps} />
+                    <FolderIcon
+                      className="size-4 text-white drop-shadow-[0_1px_0_rgba(0,0,0,0.25)]"
+                      stroke={1.75}
+                    />
                   </button>
                 }
               />
