@@ -100,57 +100,24 @@ function RouteComponent() {
   const isMainRole =
     typeof window !== "undefined" && (window as any).__CONNECT_SIDEBAR__ === false;
 
-  // In Connect Desktop: Left pane renders ONLY the sidebar
-  if (isSidebarRole) {
-    return (
-      <div
-        className={
-          hqShell
-            ? "h-svh w-full overflow-hidden"
-            : "lab-light h-svh w-full overflow-hidden bg-background"
-        }
-      >
-        {hqShell ? <AppSidebar /> : <LevelChromeSidebar />}
-      </div>
-    );
-  }
-
-  // In Connect Desktop: Right pane renders ONLY the main content when loading local routes
-  if (isMainRole) {
-    return (
-      <main className="relative flex h-svh w-full min-h-0 flex-1 flex-col overflow-hidden bg-background">
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <Outlet />
-        </div>
-        {level === 1 && companyId ? (
-          <FocusOverlay
-            companyId={companyId}
-            initialAgentId={focusAgent}
-          />
-        ) : null}
-      </main>
-    );
-  }
-
-  // Standard web browser fallback: combined sidebar + main
-  const hideMainInDesktop = isDesktop && level === 3;
+  const hideMainInDesktop = isDesktop && level === 3 && !isMainRole;
 
   return (
     <SidebarShell
       className={
         hqShell
           ? "h-svh overflow-hidden"
-          : "lab-light h-svh overflow-hidden bg-white"
+          : "lab-light h-svh overflow-hidden bg-background"
       }
       width={hqShell ? "340px" : "300px"}
     >
-      {hqShell ? <AppSidebar /> : <LevelChromeSidebar />}
-      {!hideMainInDesktop && (
+      {isMainRole ? null : (hqShell ? <AppSidebar /> : <LevelChromeSidebar />)}
+      {!isSidebarRole && !hideMainInDesktop && (
         <main
           className={
             hqShell
               ? "relative flex min-h-0 flex-1 flex-col overflow-hidden"
-              : "relative flex min-h-0 flex-1 flex-col overflow-hidden border-l border-neutral-200 bg-white"
+              : "relative flex min-h-0 flex-1 flex-col overflow-hidden border-l border-neutral-200 bg-background"
           }
         >
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
