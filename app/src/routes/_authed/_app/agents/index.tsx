@@ -7,7 +7,7 @@ import {
 } from "@tabler/icons-react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { AgentCard } from "@/components/agents/agent-card";
 import { AgentDialog } from "@/components/agents/agent-dialog";
@@ -59,6 +59,15 @@ export const Route = createFileRoute("/_authed/_app/agents/")({
 
 type Tab = "mine" | "search" | "companies";
 
+type CometResult = {
+  id: string;
+  script: string;
+  status: "pending" | "ok" | "error";
+  result?: string;
+  error?: string;
+  at: string;
+};
+
 /**
  * Bot marketplace: Meine Bots · Bots suchen · Unternehmen.
  * Affiliate discovery only — checkout / swipe on seller pages; live Mirks
@@ -72,6 +81,53 @@ function MarketplaceScreen() {
   const [query, setQuery] = useState("");
   const [tick, setTick] = useState(0);
   const [browserStatus, setBrowserStatus] = useState<{ url: string; title: string } | null>(null);
+  const [cometResults, setCometResults] = useState<CometResult[]>([]);
+  const [cometBusy, setCometBusy] = useState(false);
+
+  const runCometScript = useCallback(async (script: string) => {
+    if (!browserTab || !script.trim()) return;
+    setCometBusy(true);
+    const optimistic: CometResult = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      script,
+      status: "pending",
+      at: new Date().toISOString(),
+    };
+    setCometResults((prev) => [optimistic, ...prev].slice(0, 6));
+    try {
+      const res = await fetch(
+        `http://127.0.0.1:3002/api/browser/${encodeURIComponent(browserTab)}/exec`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ script }),
+        },
+      );
+      const data = await res.json().catch(() => ({}));
+      setCometResults((prev) =>
+        prev.map((r) =>
+          r.id === optimistic.id
+            ? {
+                ...r,
+                status: data.ok ? "ok" : "error",
+                result: typeof data.result === "string" ? data.result : JSON.stringify(data.result ?? null),
+                error: data.error,
+              }
+            : r,
+        ),
+      );
+    } catch (err) {
+      setCometResults((prev) =>
+        prev.map((r) =>
+          r.id === optimistic.id
+            ? { ...r, status: "error", error: err instanceof Error ? err.message : String(err) }
+            : r,
+        ),
+      );
+    } finally {
+      setCometBusy(false);
+    }
+  }, [browserTab]);
 
   // Fetch initial browser status from the automation server
   useEffect(() => {
@@ -160,24 +216,34 @@ function MarketplaceScreen() {
     <>
       <SidebarToggleBar />
       {browserTab ? (
-        <div className="flex items-center gap-2 border-b border-border bg-muted/50 px-4 py-2 text-xs">
-          <span className="flex items-center gap-1 font-semibold text-violet-400">
-            <svg viewBox="0 0 16 16" className="size-3 fill-current" aria-hidden="true">
-              <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" strokeWidth="1.5"/>
-              <circle cx="8" cy="8" r="3" fill="currentColor"/>
-            </svg>
-            Comet
-          </span>
-          <span className="text-muted-foreground">·</span>
-          <span className="truncate font-mono text-muted-foreground">
-            {browserStatus?.url ?? "loading…"}
-          </span>
-          {browserStatus?.title ? (
-            <>
-              <span className="text-muted-foreground">·</span>
-              <span className="truncate text-muted-foreground">{browserStatus.title}</span>
-            </>
-          ) : null}
+        <div className="border-b border-border bg-muted/30">
+          <div className="flex items-center gap-2 px-4 pt-2 text-xs">
+            <span className="flex items-center gap-1 font-semibold text-violet-400">
+              <svg viewBox="0 0 16 16" className="size-3 fill-current" aria-hidden="true">
+                <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" strokeWidth="1.5"/>
+                <circle cx="8" cy="8" r="3" fill="currentColor"/>
+              </svg>
+              Comet
+            </span>
+            <span className="text-muted-foreground">·</span>
+            <span className="truncate font-mono text-muted-foreground">
+              {browserStatus?.url ?? "loading…"}
+            </span>
+            {browserStatus?.title ? (
+              <>
+                <span className="text-muted-foreground">·</span>
+                <span className="truncate text-muted-foreground">{browserStatus.title}</span>
+              </>
+            ) : null}
+            <span className="ml-auto rounded-full bg-violet-500/15 px-2 py-0.5 font-mono text-[10px] font-semibold text-violet-300">
+              tab: {browserTab}
+            </span>
+          </div>
+          <CometActionBar
+            disabled={cometBusy}
+            onRun={(script) => void runCometScript(script)}
+          />
+          <CometResultsList results={cometResults} />
         </div>
       ) : null}
       <div className="mx-auto w-full max-w-2xl px-4 pb-16">
@@ -466,6 +532,120 @@ function ListingGrid({
               </div>
             </div>
           </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function CometActionBar({
+  onRun,
+  disabled,
+}: {
+  onRun: (script: string) => void;
+  disabled: boolean;
+}) {
+  const [value, setValue] = useState("");
+
+  const presets: { label: string; script: string }[] = [
+    {
+      label: "Titel",
+      script: "document.title",
+    },
+    {
+      label: "Buttons",
+      script: "JSON.stringify(Array.from(document.querySelectorAll('button')).map(b => b.innerText.trim()).filter(Boolean).slice(0, 20))",
+    },
+    {
+      label: "URL",
+      script: "location.href",
+    },
+  ];
+
+  const submit = () => {
+    const trimmed = value.trim();
+    if (!trimmed || disabled) return;
+    onRun(trimmed);
+    setValue("");
+  };
+
+  return (
+    <div className="flex flex-col gap-1 px-4 py-2">
+      <div className="flex items-stretch gap-1">
+        <input
+          className="flex-1 rounded-md border border-border bg-background px-2 py-1 font-mono text-xs text-foreground outline-none focus:border-violet-400 disabled:opacity-50"
+          disabled={disabled}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              submit();
+            }
+          }}
+          placeholder="JS-Ausdruck im aktiven Tab ausführen (Enter) — z.B. document.title"
+          value={value}
+        />
+        <button
+          className="rounded-md bg-violet-500 px-3 py-1 text-xs font-semibold text-white transition hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={disabled || !value.trim()}
+          onClick={submit}
+          type="button"
+        >
+          {disabled ? "läuft…" : "Ausführen"}
+        </button>
+      </div>
+      <div className="flex flex-wrap items-center gap-1 text-[10px]">
+        <span className="text-muted-foreground">Quick:</span>
+        {presets.map((p) => (
+          <button
+            className="rounded-full border border-border bg-background px-2 py-0.5 text-[10px] text-muted-foreground transition hover:border-violet-400 hover:text-foreground disabled:opacity-50"
+            disabled={disabled}
+            key={p.label}
+            onClick={() => onRun(p.script)}
+            type="button"
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CometResultsList({ results }: { results: CometResult[] }) {
+  if (results.length === 0) return null;
+  return (
+    <ul className="space-y-1 px-4 pb-3">
+      {results.map((r) => (
+        <li
+          className="rounded-md border border-border bg-background/70 px-2 py-1 font-mono text-[11px]"
+          key={r.id}
+        >
+          <div className="flex items-center gap-2">
+            <span
+              className={
+                r.status === "ok"
+                  ? "size-1.5 rounded-full bg-emerald-400"
+                  : r.status === "error"
+                    ? "size-1.5 rounded-full bg-rose-400"
+                    : "size-1.5 animate-pulse rounded-full bg-violet-400"
+              }
+            />
+            <span className="truncate text-muted-foreground">{r.script}</span>
+            <span className="ml-auto text-[9px] text-muted-foreground/70">
+              {new Date(r.at).toLocaleTimeString()}
+            </span>
+          </div>
+          {r.status === "ok" && r.result ? (
+            <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-all pl-3 text-foreground/80">
+              {r.result}
+            </pre>
+          ) : null}
+          {r.status === "error" && r.error ? (
+            <pre className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap break-all pl-3 text-rose-300">
+              {r.error}
+            </pre>
+          ) : null}
         </li>
       ))}
     </ul>
