@@ -60,7 +60,7 @@ public partial class MainWindow : Window
                 File.AppendAllText(logFile, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Automation server failed: {exServer}\n");
             }
 
-            ShowCompanyTab();
+            ShowBrowserTab();
             StatusText.Text = "Connect Desktop & AI-Browser bereit";
             File.AppendAllText(logFile, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] MainWindow_Loaded complete\n");
         }
@@ -117,6 +117,9 @@ public partial class MainWindow : Window
                 {
                     AddressBar.Text = src;
                 }
+                // Broadcast active tab URL to the AI panel (used by /agents?browserTab=...)
+                AiPanel.CoreWebView2?.PostWebMessageAsString(
+                    System.Text.Json.JsonSerializer.Serialize(new { type = "active_tab_url", url = src, tabId = "tab-main" }));
             }
             catch { }
         };
@@ -134,24 +137,15 @@ public partial class MainWindow : Window
         };
     }
 
-    public void ShowCompanyTab()
-    {
-        TabCompany.IsChecked = true;
-        TabBrowser.IsChecked = false;
-        CompanyView.Visibility = Visibility.Visible;
-        BrowserView.Visibility = Visibility.Collapsed;
-        BrowserToolbar.Visibility = Visibility.Collapsed;
-        StatusText.Text = "Ansicht: Connect Workspace";
-    }
-
     public void ShowBrowserTab()
     {
-        TabCompany.IsChecked = false;
         TabBrowser.IsChecked = true;
+        TabWorkspace.IsChecked = false;
         CompanyView.Visibility = Visibility.Collapsed;
         BrowserView.Visibility = Visibility.Visible;
         BrowserToolbar.Visibility = Visibility.Visible;
-        StatusText.Text = "Ansicht: Echter AI-Browser";
+        AiPanel.Visibility = Visibility.Visible;
+        StatusText.Text = "Ansicht: AI-Browser + Agent-Panel";
 
         if (_browserReady)
         {
@@ -161,6 +155,17 @@ public partial class MainWindow : Window
                 NavigateBrowser(DefaultBrowserHome);
             }
         }
+    }
+
+    public void ShowWorkspaceTab()
+    {
+        TabBrowser.IsChecked = false;
+        TabWorkspace.IsChecked = true;
+        CompanyView.Visibility = Visibility.Visible;
+        BrowserView.Visibility = Visibility.Collapsed;
+        BrowserToolbar.Visibility = Visibility.Collapsed;
+        AiPanel.Visibility = Visibility.Visible;
+        StatusText.Text = "Ansicht: Workspace + Agent-Panel";
     }
 
     public void NavigateBrowser(string url)
@@ -173,9 +178,9 @@ public partial class MainWindow : Window
         }
     }
 
-    private void TabCompany_Click(object sender, RoutedEventArgs e)
+    private void TabWorkspace_Click(object sender, RoutedEventArgs e)
     {
-        ShowCompanyTab();
+        ShowWorkspaceTab();
     }
 
     private void TabBrowser_Click(object sender, RoutedEventArgs e)

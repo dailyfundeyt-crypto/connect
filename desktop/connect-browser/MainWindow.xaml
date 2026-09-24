@@ -86,8 +86,9 @@
         <!-- Brand Title -->
         <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
           <TextBlock Text="⚡ CONNECT" Foreground="#38BDF8" FontWeight="Bold" FontSize="15" VerticalAlignment="Center" Margin="0,0,16,0" />
-          <RadioButton x:Name="TabCompany" Content="🏢 Connect Workspace" Style="{StaticResource TabButtonStyle}" IsChecked="True" Click="TabCompany_Click" />
-          <RadioButton x:Name="TabBrowser" Content="🌐 Echter AI-Browser" Style="{StaticResource TabButtonStyle}" Click="TabBrowser_Click" />
+          <RadioButton x:Name="TabWorkspace" Content="🏢 Workspace" Style="{StaticResource TabButtonStyle}" Click="TabWorkspace_Click" />
+          <RadioButton x:Name="TabBrowser" Content="🌐 AI-Browser" Style="{StaticResource TabButtonStyle}" Click="TabBrowser_Click" />
+        <RadioButton x:Name="TabWorkspace" Content="🏢 Workspace" Style="{StaticResource TabButtonStyle}" Click="TabWorkspace_Click" />
         </StackPanel>
 
         <!-- AI Status Badge -->
@@ -150,10 +151,28 @@
       </StatusBarItem>
     </StatusBar>
 
-    <!-- Content Views (WebView2) -->
+    <!-- Content Views: Browser pane (left) + AI Panel (right) -->
     <Grid Background="#0F172A">
-      <wv2:WebView2 x:Name="CompanyView" Visibility="Visible" />
-      <wv2:WebView2 x:Name="BrowserView" Visibility="Collapsed" />
+      <Grid.ColumnDefinitions>
+        <!-- Browser pane: takes all space by default -->
+        <ColumnDefinition Width="*" MinWidth="200" />
+        <!-- AI Panel: 360px, resizable later -->
+        <ColumnDefinition Width="360" />
+      </Grid.ColumnDefinitions>
+
+      <!-- Left: browser view (stack of WebViews, one visible at a time) -->
+      <Grid Grid.Column="0">
+        <!-- Tab strip will be added here in C-1; for now, just the single BrowserView -->
+        <wv2:WebView2 x:Name="BrowserView" />
+        <!-- CompanyView is hidden; workspace is now the right-side AiPanel -->
+        <wv2:WebView2 x:Name="CompanyView" Visibility="Collapsed" />
+      </Grid>
+
+      <!-- Right: AI agent panel -->
+      <wv2:WebView2 x:Name="AiPanel" Grid.Column="1"
+                     Source="http://127.0.0.1:3010/agents?browserTab=tab-main"
+                     Visibility="Visible"
+                     BorderBrush="#334155" BorderThickness="1,0,0,0" />
     </Grid>
   </DockPanel>
 </Window>

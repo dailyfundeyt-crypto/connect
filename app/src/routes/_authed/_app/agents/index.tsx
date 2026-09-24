@@ -49,6 +49,7 @@ const agentsSearchSchema = z.object({
   new: z.boolean().optional(),
   agent: z.string().optional(),
   tab: z.enum(["mine", "search", "companies"]).optional(),
+  browserTab: z.string().optional(),
 });
 
 export const Route = createFileRoute("/_authed/_app/agents/")({
@@ -64,12 +65,41 @@ type Tab = "mine" | "search" | "companies";
  * prices are read-only; redeem unlocks after an off-app purchase.
  */
 function MarketplaceScreen() {
-  const { new: isCreating, agent: selectedAgentId, tab: tabParam } =
+  const { new: isCreating, agent: selectedAgentId, tab: tabParam, browserTab } =
     Route.useSearch();
   const navigate = Route.useNavigate();
   const [tab, setTab] = useState<Tab>(tabParam ?? "mine");
   const [query, setQuery] = useState("");
   const [tick, setTick] = useState(0);
+  const [browserStatus, setBrowserStatus] = useState<{ url: string; title: string } | null>(null);
+
+  // Fetch initial browser status from the automation server
+  useEffect(() => {
+    if (!browserTab) return;
+    fetch("http://127.0.0.1:3002/api/browser/status")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.url && data.title) setBrowserStatus({ url: data.url, title: data.title });
+      })
+      .catch(() => {/* automation server not running — fine */});
+  }, [browserTab]);
+
+  // Listen for active-tab updates from WPF via chrome.webview.postMessage
+  useEffect(() => {
+    if (!browserTab) return;
+    const wv = (window as any).chrome?.webview;
+    if (!wv) return;
+    const handler = (event: { data: string }) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === "active_tab_url" && msg.url) {
+          setBrowserStatus({ url: msg.url, title: "" });
+        }
+      } catch {}
+    };
+    wv.addEventListener("message", handler);
+    return () => wv.removeEventListener("message", handler);
+  }, [browserTab]);
 
   const {
     data: agents,
@@ -129,6 +159,27 @@ function MarketplaceScreen() {
   return (
     <>
       <SidebarToggleBar />
+      {browserTab ? (
+        <div className="flex items-center gap-2 border-b border-border bg-muted/50 px-4 py-2 text-xs">
+          <span className="flex items-center gap-1 font-semibold text-violet-400">
+            <svg viewBox="0 0 16 16" className="size-3 fill-current" aria-hidden="true">
+              <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" strokeWidth="1.5"/>
+              <circle cx="8" cy="8" r="3" fill="currentColor"/>
+            </svg>
+            Comet
+          </span>
+          <span className="text-muted-foreground">·</span>
+          <span className="truncate font-mono text-muted-foreground">
+            {browserStatus?.url ?? "loading…"}
+          </span>
+          {browserStatus?.title ? (
+            <>
+              <span className="text-muted-foreground">·</span>
+              <span className="truncate text-muted-foreground">{browserStatus.title}</span>
+            </>
+          ) : null}
+        </div>
+      ) : null}
       <div className="mx-auto w-full max-w-2xl px-4 pb-16">
         <div className="mt-12 w-full max-w-2xl">
           <div className="flex w-full flex-row items-center justify-between gap-2">
