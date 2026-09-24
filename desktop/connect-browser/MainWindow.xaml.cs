@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Input;
 using Microsoft.Web.WebView2.Core;
@@ -11,9 +12,8 @@ public partial class MainWindow : Window
     public const string ConnectUrl = "http://127.0.0.1:3010";
     public const string DefaultBrowserHome = "https://www.google.com/";
 
-    private bool _companyReady;
-    private bool _browserReady;
     private BrowserAutomationServer? _automationServer;
+    private BrowserTabs? _tabs;
 
     public MainWindow()
     {
@@ -37,20 +37,22 @@ public partial class MainWindow : Window
             // 1. Initialisiere Workspace-Ansicht
             await CompanyView.EnsureCoreWebView2Async(env);
             WireCompanyView(CompanyView.CoreWebView2);
-            _companyReady = true;
             CompanyView.CoreWebView2.Navigate(ConnectUrl);
             File.AppendAllText(logFile, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] CompanyView ready\n");
 
-            // 2. Initialisiere echten AI-Browser (WebView2)
-            await BrowserView.EnsureCoreWebView2Async(env);
-            WireBrowserView(BrowserView.CoreWebView2);
-            _browserReady = true;
-            File.AppendAllText(logFile, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] BrowserView ready\n");
+            // 2. Initialisiere Browser-Tabs (jeder Tab ist ein eigener WebView2, geteiltes userData → Login bleibt erhalten)
+            _tabs = new BrowserTabs(
+                BrowserTabHost,
+                TabStrip,
+                env,
+                OnActiveTabChanged);
+            _tabs.InitializeOrRestore(DefaultBrowserHome);
+            File.AppendAllText(logFile, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] BrowserTabs ready\n");
 
             // 3. Starte lokalen Automation Server (Port 3002)
             try
             {
-                _automationServer = new BrowserAutomationServer(this, BrowserView, 3002);
+                _automationServer = new BrowserAutomationServer(this, _tabs, 3002);
                 _automationServer.Start();
                 AiServerStatus.Text = "AI Bridge: Aktiv (Port 3002)";
                 File.AppendAllText(logFile, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Automation server started\n");
@@ -101,60 +103,66 @@ public partial class MainWindow : Window
         };
     }
 
-    private void WireBrowserView(CoreWebView2 core)
+    /// <summary>
+    /// Called by <see cref="BrowserTabs"/> when the active tab changes (or when
+    /// the active tab navigates). Re-pushes the current URL + tabId to the
+    /// AI panel and refreshes the address bar / status text.
+    /// </summary>
+    private void OnActiveTabChanged(BrowserTab tab)
     {
-        core.Settings.AreDefaultContextMenusEnabled = true;
-        core.Settings.IsStatusBarEnabled = false;
-
-        core.SourceChanged += (_, _) =>
+        var url = tab.Url ?? "";
+        if (!string.IsNullOrWhiteSpace(url)
+            && !url.StartsWith("data:", StringComparison.OrdinalIgnoreCase)
+            && !url.StartsWith("about:", StringComparison.OrdinalIgnoreCase))
         {
-            try
+            AddressBar.Text = url;
+        }
+        StatusText.Text = $"AI-Browser: {tab.Id} · {tab.Title}";
+
+        // Re-navigate the AI panel to update ?browserTab=... so the Comet banner
+        // can show the right tab id.
+        if (AiPanel.CoreWebView2 != null)
+        {
+            var target = $"http://127.0.0.1:3010/agents?browserTab={tab.Id}";
+            var current = AiPanel.Source?.ToString() ?? "";
+            if (!current.Equals(target, StringComparison.OrdinalIgnoreCase))
             {
-                var src = BrowserView.Source?.ToString() ?? "";
-                if (!string.IsNullOrWhiteSpace(src)
-                    && !src.StartsWith("data:", StringComparison.OrdinalIgnoreCase)
-                    && !src.StartsWith("about:", StringComparison.OrdinalIgnoreCase))
-                {
-                    AddressBar.Text = src;
-                }
-                // Broadcast active tab URL to the AI panel (used by /agents?browserTab=...)
-                AiPanel.CoreWebView2?.PostWebMessageAsString(
-                    System.Text.Json.JsonSerializer.Serialize(new { type = "active_tab_url", url = src, tabId = "tab-main" }));
+                AiPanel.CoreWebView2.Navigate(target);
             }
-            catch { }
-        };
+        }
 
-        core.NavigationStarting += (_, args) =>
+        // Broadcast to AI panel (in case the Web listener was set up after
+        // navigation; re-post so the latest URL is always known).
+        try
         {
-            StatusText.Text = "AI-Browser lädt: " + args.Uri;
-        };
-
-        core.NavigationCompleted += (_, args) =>
-        {
-            StatusText.Text = args.IsSuccess
-                ? "AI-Browser bereit: " + (core.DocumentTitle ?? core.Source)
-                : "Ladefehler: " + args.WebErrorStatus;
-        };
+            AiPanel.CoreWebView2?.PostWebMessageAsString(
+                System.Text.Json.JsonSerializer.Serialize(new { type = "active_tab_url", url = url, tabId = tab.Id }));
+        }
+        catch { }
     }
+
+    public void SetStatus(string text) => StatusText.Text = text;
+
+    /// <summary>The active tab's WebView2, or null before tabs initialize.</summary>
+    public Microsoft.Web.WebView2.Wpf.WebView2? ActiveTabView => _tabs?.ActiveTab?.View;
+
+    /// <summary>Look up a tab's WebView2 by id, or null if not found.</summary>
+    public Microsoft.Web.WebView2.Wpf.WebView2? TabView(string tabId)
+        => _tabs?.Tabs.FirstOrDefault(t => t.Id == tabId)?.View;
+
+    /// <summary>Expose the BrowserTabs for code paths that need the full list.</summary>
+    public BrowserTabs? TabsAccessor => _tabs;
 
     public void ShowBrowserTab()
     {
         TabBrowser.IsChecked = true;
         TabWorkspace.IsChecked = false;
         CompanyView.Visibility = Visibility.Collapsed;
-        BrowserView.Visibility = Visibility.Visible;
         BrowserToolbar.Visibility = Visibility.Visible;
         AiPanel.Visibility = Visibility.Visible;
+        BrowserTabHost.Visibility = Visibility.Visible;
+        TabStrip.Visibility = Visibility.Visible;
         StatusText.Text = "Ansicht: AI-Browser + Agent-Panel";
-
-        if (_browserReady)
-        {
-            var cur = BrowserView.Source?.ToString() ?? "";
-            if (string.IsNullOrEmpty(cur) || cur.StartsWith("about:", StringComparison.OrdinalIgnoreCase))
-            {
-                NavigateBrowser(DefaultBrowserHome);
-            }
-        }
     }
 
     public void ShowWorkspaceTab()
@@ -162,8 +170,9 @@ public partial class MainWindow : Window
         TabBrowser.IsChecked = false;
         TabWorkspace.IsChecked = true;
         CompanyView.Visibility = Visibility.Visible;
-        BrowserView.Visibility = Visibility.Collapsed;
         BrowserToolbar.Visibility = Visibility.Collapsed;
+        BrowserTabHost.Visibility = Visibility.Collapsed;
+        TabStrip.Visibility = Visibility.Collapsed;
         AiPanel.Visibility = Visibility.Visible;
         StatusText.Text = "Ansicht: Workspace + Agent-Panel";
     }
@@ -172,10 +181,7 @@ public partial class MainWindow : Window
     {
         if (string.IsNullOrWhiteSpace(url)) return;
         AddressBar.Text = url;
-        if (_browserReady && BrowserView.CoreWebView2 != null)
-        {
-            BrowserView.CoreWebView2.Navigate(url);
-        }
+        _tabs?.NavigateActive(url);
     }
 
     private void TabWorkspace_Click(object sender, RoutedEventArgs e)
@@ -188,21 +194,36 @@ public partial class MainWindow : Window
         ShowBrowserTab();
     }
 
+    private async void BtnNewTab_Click(object sender, RoutedEventArgs e)
+    {
+        if (_tabs == null) return;
+        await _tabs.CreateTabAsync(DefaultBrowserHome);
+    }
+
+    private void BtnCloseTab_Click(object sender, RoutedEventArgs e)
+    {
+        var active = _tabs?.ActiveTab;
+        if (active == null) return;
+        _tabs?.Close(active.Id);
+    }
+
     private void BtnBack_Click(object sender, RoutedEventArgs e)
     {
-        if (BrowserView.CoreWebView2?.CanGoBack == true)
-            BrowserView.CoreWebView2.GoBack();
+        var view = _tabs?.ActiveTab?.View;
+        if (view?.CoreWebView2?.CanGoBack == true)
+            view.CoreWebView2.GoBack();
     }
 
     private void BtnForward_Click(object sender, RoutedEventArgs e)
     {
-        if (BrowserView.CoreWebView2?.CanGoForward == true)
-            BrowserView.CoreWebView2.GoForward();
+        var view = _tabs?.ActiveTab?.View;
+        if (view?.CoreWebView2?.CanGoForward == true)
+            view.CoreWebView2.GoForward();
     }
 
     private void BtnRefresh_Click(object sender, RoutedEventArgs e)
     {
-        BrowserView.CoreWebView2?.Reload();
+        _tabs?.ActiveTab?.View.CoreWebView2?.Reload();
     }
 
     private void BtnHome_Click(object sender, RoutedEventArgs e)
@@ -243,17 +264,18 @@ public partial class MainWindow : Window
     {
         try
         {
-            if (BrowserView.CoreWebView2 == null) return;
-            var title = BrowserView.CoreWebView2.DocumentTitle;
-            var url = BrowserView.Source?.ToString();
+            var view = _tabs?.ActiveTab?.View;
+            if (view?.CoreWebView2 == null) return;
+            var title = view.CoreWebView2.DocumentTitle;
+            var url = view.Source?.ToString();
 
             // Schnappschuss als Test
             using var ms = new MemoryStream();
-            await BrowserView.CoreWebView2.CapturePreviewAsync(
+            await view.CoreWebView2.CapturePreviewAsync(
                 CoreWebView2CapturePreviewImageFormat.Png, ms);
 
             MessageBox.Show(
-                $"AI-Browser erfasst:\n\nTitel: {title}\nURL: {url}\nScreenshot: {ms.Length / 1024} KB\n\nAI-Endpunkt ist aktiv auf http://127.0.0.1:3002/api/browser/",
+                $"AI-Browser erfasst:\n\nTab: {_tabs?.ActiveTab?.Id}\nTitel: {title}\nURL: {url}\nScreenshot: {ms.Length / 1024} KB\n\nAI-Endpunkt ist aktiv auf http://127.0.0.1:3002/api/browser/",
                 "Connect AI Browser",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);

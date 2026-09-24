@@ -86,9 +86,8 @@
         <!-- Brand Title -->
         <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
           <TextBlock Text="⚡ CONNECT" Foreground="#38BDF8" FontWeight="Bold" FontSize="15" VerticalAlignment="Center" Margin="0,0,16,0" />
-          <RadioButton x:Name="TabWorkspace" Content="🏢 Workspace" Style="{StaticResource TabButtonStyle}" Click="TabWorkspace_Click" />
           <RadioButton x:Name="TabBrowser" Content="🌐 AI-Browser" Style="{StaticResource TabButtonStyle}" Click="TabBrowser_Click" />
-        <RadioButton x:Name="TabWorkspace" Content="🏢 Workspace" Style="{StaticResource TabButtonStyle}" Click="TabWorkspace_Click" />
+          <RadioButton x:Name="TabWorkspace" Content="🏢 Workspace" Style="{StaticResource TabButtonStyle}" Click="TabWorkspace_Click" />
         </StackPanel>
 
         <!-- AI Status Badge -->
@@ -160,19 +159,92 @@
         <ColumnDefinition Width="360" />
       </Grid.ColumnDefinitions>
 
-      <!-- Left: browser view (stack of WebViews, one visible at a time) -->
+      <!-- Left: browser tab strip + WebView host -->
       <Grid Grid.Column="0">
-        <!-- Tab strip will be added here in C-1; for now, just the single BrowserView -->
-        <wv2:WebView2 x:Name="BrowserView" />
-        <!-- CompanyView is hidden; workspace is now the right-side AiPanel -->
-        <wv2:WebView2 x:Name="CompanyView" Visibility="Collapsed" />
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Per-tab strip: ListBox + add-button + close-button -->
+        <Border Grid.Row="0" Background="#0F172A" BorderBrush="#334155" BorderThickness="0,0,0,1" Padding="6,4">
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <ListBox x:Name="TabStrip"
+                     Grid.Column="0"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     Foreground="#F8FAFC"
+                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                     ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                     SelectionMode="Single">
+              <ListBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+              </ListBox.ItemsPanel>
+              <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                  <Setter Property="Background" Value="#1E293B" />
+                  <Setter Property="Foreground" Value="#94A3B8" />
+                  <Setter Property="Padding" Value="10,4" />
+                  <Setter Property="Margin" Value="0,0,4,0" />
+                  <Setter Property="BorderThickness" Value="0" />
+                  <Setter Property="Cursor" Value="Hand" />
+                  <Setter Property="Template">
+                    <Setter.Value>
+                      <ControlTemplate TargetType="ListBoxItem">
+                        <Border Background="{TemplateBinding Background}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}"
+                                Margin="{TemplateBinding Margin}">
+                          <ContentPresenter />
+                        </Border>
+                      </ControlTemplate>
+                    </Setter.Value>
+                  </Setter>
+                  <Style.Triggers>
+                    <Trigger Property="IsSelected" Value="True">
+                      <Setter Property="Background" Value="#2563EB" />
+                      <Setter Property="Foreground" Value="#FFFFFF" />
+                    </Trigger>
+                    <Trigger Property="IsMouseOver" Value="True">
+                      <Setter Property="Foreground" Value="#F1F5F9" />
+                    </Trigger>
+                  </Style.Triggers>
+                </Style>
+              </ListBox.ItemContainerStyle>
+            </ListBox>
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+              <Button x:Name="BtnNewTab" Content="+" Width="32" Height="28"
+                      FontWeight="Bold" ToolTip="Neuer Tab"
+                      Click="BtnNewTab_Click" />
+              <Button x:Name="BtnCloseTab" Content="×" Width="32" Height="28" Margin="4,0,0,0"
+                      FontWeight="Bold" ToolTip="Aktuellen Tab schließen"
+                      Click="BtnCloseTab_Click" />
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <!-- Workspace view (shown when user picks "Workspace" top tab) -->
+        <wv2:WebView2 x:Name="CompanyView"
+                       Grid.Row="0"
+                       Grid.RowSpan="2"
+                       Visibility="Collapsed" />
+
+        <!-- WebView host Grid: each BrowserTab owns one WebView2 child added by code -->
+        <Grid x:Name="BrowserTabHost" Grid.Row="1" Background="#0F172A" />
       </Grid>
 
       <!-- Right: AI agent panel -->
-      <wv2:WebView2 x:Name="AiPanel" Grid.Column="1"
-                     Source="http://127.0.0.1:3010/agents?browserTab=tab-main"
-                     Visibility="Visible"
-                     BorderBrush="#334155" BorderThickness="1,0,0,0" />
+      <Border Grid.Column="1" BorderBrush="#334155" BorderThickness="1,0,0,0">
+        <wv2:WebView2 x:Name="AiPanel"
+                       Source="http://127.0.0.1:3010/agents?browserTab=tab-main"
+                       Visibility="Visible" />
+      </Border>
     </Grid>
   </DockPanel>
 </Window>

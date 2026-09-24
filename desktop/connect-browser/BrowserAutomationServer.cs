@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -13,17 +14,39 @@ public class BrowserAutomationServer
 {
     private readonly HttpListener _listener;
     private readonly MainWindow _mainWindow;
-    private readonly WebView2 _browserView;
     private bool _isRunning;
     public int Port { get; }
 
-    public BrowserAutomationServer(MainWindow mainWindow, WebView2 browserView, int port = 3002)
+    public BrowserAutomationServer(MainWindow mainWindow, BrowserTabs tabs, int port = 3002)
     {
         _mainWindow = mainWindow;
-        _browserView = browserView;
         Port = port;
         _listener = new HttpListener();
         _listener.Prefixes.Add($"http://127.0.0.1:{Port}/");
+    }
+
+    /// <summary>
+    /// Extract the optional tab id from a path like "/api/browser/{tabId}/...".
+    /// Returns null when no id segment is present.
+    /// </summary>
+    private static string? ExtractTabId(string path)
+    {
+        // path starts with "/api/browser/"
+        var rest = path.Substring("/api/browser/".Length);
+        if (string.IsNullOrEmpty(rest)) return null;
+        var slash = rest.IndexOf('/');
+        return slash < 0 ? rest : rest.Substring(0, slash);
+    }
+
+    /// <summary>Resolve a tab's WebView2 by id, falling back to the active tab.</summary>
+    private Microsoft.Web.WebView2.Wpf.WebView2? ResolveTab(string? tabId)
+    {
+        if (!string.IsNullOrEmpty(tabId))
+        {
+            var match = _mainWindow.TabView(tabId);
+            if (match != null) return match;
+        }
+        return _mainWindow.ActiveTabView;
     }
 
     public void Start()
@@ -102,49 +125,55 @@ public class BrowserAutomationServer
         try
         {
             var path = req.Url?.AbsolutePath.ToLowerInvariant() ?? "";
+            const string prefix = "/api/browser/";
+            if (!path.StartsWith(prefix, StringComparison.Ordinal)) goto notFound;
 
-            if (path == "/api/browser/status" && req.HttpMethod == "GET")
+            var rest = path.Substring(prefix.Length);
+            if (rest.Length == 0) goto notFound;
+
+            var segments = rest.Split('/');
+            string tabId = null!;
+            string action;
+
+            if (segments.Length == 1)
             {
-                await HandleStatus(res);
-                return;
+                // /api/browser/{verb}
+                action = segments[0];
+            }
+            else
+            {
+                // /api/browser/{tabId}/{verb} — only treat segments[0] as a tab id
+                // when it actually matches the tab- prefix and segments[1] is the verb.
+                tabId = segments[0];
+                action = segments[1];
             }
 
-            if (path == "/api/browser/navigate" && req.HttpMethod == "POST")
+            switch ((action, req.HttpMethod))
             {
-                await HandleNavigate(req, res);
-                return;
+                case ("status", "GET"):
+                    await HandleStatus(res, tabId);
+                    return;
+                case ("navigate", "POST"):
+                    await HandleNavigate(req, res, tabId);
+                    return;
+                case ("exec", "POST"):
+                    await HandleEval(req, res, tabId);
+                    return;
+                case ("click", "POST"):
+                    await HandleClick(req, res, tabId);
+                    return;
+                case ("type", "POST"):
+                    await HandleType(req, res, tabId);
+                    return;
+                case ("snapshot", "GET"):
+                    await HandleSnapshot(res, tabId);
+                    return;
+                case ("screenshot", "GET"):
+                    await HandleScreenshot(res, tabId);
+                    return;
             }
 
-            if (path == "/api/browser/eval" && req.HttpMethod == "POST")
-            {
-                await HandleEval(req, res);
-                return;
-            }
-
-            if (path == "/api/browser/click" && req.HttpMethod == "POST")
-            {
-                await HandleClick(req, res);
-                return;
-            }
-
-            if (path == "/api/browser/type" && req.HttpMethod == "POST")
-            {
-                await HandleType(req, res);
-                return;
-            }
-
-            if (path == "/api/browser/snapshot" && req.HttpMethod == "GET")
-            {
-                await HandleSnapshot(res);
-                return;
-            }
-
-            if (path == "/api/browser/screenshot" && req.HttpMethod == "GET")
-            {
-                await HandleScreenshot(res);
-                return;
-            }
-
+            notFound:
             res.StatusCode = 404;
             await SendJson(res, new { error = "Not found" });
         }
@@ -155,7 +184,7 @@ public class BrowserAutomationServer
         }
     }
 
-    private async Task HandleStatus(HttpListenerResponse res)
+    private async Task HandleStatus(HttpListenerResponse res, string? tabId)
     {
         string currentUrl = "";
         string currentTitle = "";
@@ -163,22 +192,24 @@ public class BrowserAutomationServer
 
         await Application.Current.Dispatcher.InvokeAsync(() =>
         {
-            currentUrl = _browserView.Source?.ToString() ?? "";
-            currentTitle = _browserView.CoreWebView2?.DocumentTitle ?? "";
-            isReady = _browserView.CoreWebView2 != null;
+            var tab = ResolveTab(tabId);
+            currentUrl = tab?.Source?.ToString() ?? "";
+            currentTitle = tab?.CoreWebView2?.DocumentTitle ?? "";
+            isReady = tab?.CoreWebView2 != null;
         });
 
         await SendJson(res, new
         {
             ok = true,
             browser = "WebView2",
+            tabId = tabId ?? _mainWindow.TabsAccessor?.ActiveTab?.Id,
             url = currentUrl,
             title = currentTitle,
             ready = isReady
         });
     }
 
-    private async Task HandleNavigate(HttpListenerRequest req, HttpListenerResponse res)
+    private async Task HandleNavigate(HttpListenerRequest req, HttpListenerResponse res, string? tabId)
     {
         using var reader = new StreamReader(req.InputStream, req.ContentEncoding);
         var body = await reader.ReadToEndAsync();
@@ -194,16 +225,21 @@ public class BrowserAutomationServer
         var targetUrl = urlProp.GetString()!;
         if (!targetUrl.Contains("://")) targetUrl = "https://" + targetUrl;
 
+        string? resolvedTabId = null;
         await Application.Current.Dispatcher.InvokeAsync(() =>
         {
-            _mainWindow.NavigateBrowser(targetUrl);
-            _mainWindow.ShowBrowserTab();
+            var tab = ResolveTab(tabId);
+            if (tab?.CoreWebView2 != null)
+            {
+                tab.CoreWebView2.Navigate(targetUrl);
+                resolvedTabId = _mainWindow.TabsAccessor?.Tabs.FirstOrDefault(t => t.View == tab)?.Id;
+            }
         });
 
-        await SendJson(res, new { ok = true, url = targetUrl, status = "navigating" });
+        await SendJson(res, new { ok = true, tabId = resolvedTabId, url = targetUrl, status = "navigating" });
     }
 
-    private async Task HandleEval(HttpListenerRequest req, HttpListenerResponse res)
+    private async Task HandleEval(HttpListenerRequest req, HttpListenerResponse res, string? tabId)
     {
         using var reader = new StreamReader(req.InputStream, req.ContentEncoding);
         var body = await reader.ReadToEndAsync();
@@ -218,17 +254,18 @@ public class BrowserAutomationServer
 
         string result = await RunOnUiAsync(async () =>
         {
-            if (_browserView.CoreWebView2 != null)
+            var tab = ResolveTab(tabId);
+            if (tab?.CoreWebView2 != null)
             {
-                return await _browserView.CoreWebView2.ExecuteScriptAsync(scriptProp.GetString());
+                return await tab.CoreWebView2.ExecuteScriptAsync(scriptProp.GetString());
             }
             return "";
         });
 
-        await SendJson(res, new { ok = true, result });
+        await SendJson(res, new { ok = true, tabId = tabId, result });
     }
 
-    private async Task HandleClick(HttpListenerRequest req, HttpListenerResponse res)
+    private async Task HandleClick(HttpListenerRequest req, HttpListenerResponse res, string? tabId)
     {
         using var reader = new StreamReader(req.InputStream, req.ContentEncoding);
         var body = await reader.ReadToEndAsync();
@@ -249,17 +286,18 @@ public class BrowserAutomationServer
 
         string result = await RunOnUiAsync(async () =>
         {
-            if (_browserView.CoreWebView2 != null)
+            var tab = ResolveTab(tabId);
+            if (tab?.CoreWebView2 != null)
             {
-                return await _browserView.CoreWebView2.ExecuteScriptAsync(script);
+                return await tab.CoreWebView2.ExecuteScriptAsync(script);
             }
             return "false";
         });
 
-        await SendJson(res, new { ok = result == "true", clicked = selector });
+        await SendJson(res, new { ok = result == "true", tabId = tabId, clicked = selector });
     }
 
-    private async Task HandleType(HttpListenerRequest req, HttpListenerResponse res)
+    private async Task HandleType(HttpListenerRequest req, HttpListenerResponse res, string? tabId)
     {
         using var reader = new StreamReader(req.InputStream, req.ContentEncoding);
         var body = await reader.ReadToEndAsync();
@@ -284,26 +322,28 @@ public class BrowserAutomationServer
 
         string result = await RunOnUiAsync(async () =>
         {
-            if (_browserView.CoreWebView2 != null)
+            var tab = ResolveTab(tabId);
+            if (tab?.CoreWebView2 != null)
             {
-                return await _browserView.CoreWebView2.ExecuteScriptAsync(script);
+                return await tab.CoreWebView2.ExecuteScriptAsync(script);
             }
             return "false";
         });
 
-        await SendJson(res, new { ok = result == "true", typed = text });
+        await SendJson(res, new { ok = result == "true", tabId = tabId, typed = text });
     }
 
-    private async Task HandleSnapshot(HttpListenerResponse res)
+    private async Task HandleSnapshot(HttpListenerResponse res, string? tabId)
     {
         string textSnapshot = "";
         string currentUrl = "";
 
         var result = await RunOnUiAsync<(string url, string raw)>(async () =>
         {
-            if (_browserView.CoreWebView2 != null)
+            var tab = ResolveTab(tabId);
+            if (tab?.CoreWebView2 != null)
             {
-                var url = _browserView.Source?.ToString() ?? "";
+                var url = tab.Source?.ToString() ?? "";
                 var script = @"
                     (() => {
                         return JSON.stringify({
@@ -313,7 +353,7 @@ public class BrowserAutomationServer
                         });
                     })();
                 ";
-                var raw = await _browserView.CoreWebView2.ExecuteScriptAsync(script);
+                var raw = await tab.CoreWebView2.ExecuteScriptAsync(script);
                 return (url, raw);
             }
             return ("", "");
@@ -322,17 +362,18 @@ public class BrowserAutomationServer
         currentUrl = result.url;
         textSnapshot = result.raw;
 
-        await SendJson(res, new { ok = true, url = currentUrl, snapshot = textSnapshot });
+        await SendJson(res, new { ok = true, tabId = tabId, url = currentUrl, snapshot = textSnapshot });
     }
 
-    private async Task HandleScreenshot(HttpListenerResponse res)
+    private async Task HandleScreenshot(HttpListenerResponse res, string? tabId)
     {
         byte[]? imageBytes = await RunOnUiAsync(async () =>
         {
-            if (_browserView.CoreWebView2 != null)
+            var tab = ResolveTab(tabId);
+            if (tab?.CoreWebView2 != null)
             {
                 using var ms = new MemoryStream();
-                await _browserView.CoreWebView2.CapturePreviewAsync(
+                await tab.CoreWebView2.CapturePreviewAsync(
                     Microsoft.Web.WebView2.Core.CoreWebView2CapturePreviewImageFormat.Png,
                     ms);
                 return ms.ToArray();
