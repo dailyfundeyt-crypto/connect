@@ -9,18 +9,18 @@
 Das Projekt besteht aus zwei verknüpften Teilen:
 
 ```
-├── C:\Users\Kunc GmbH\Desktop\OpenBot\             [Web-App: Frontend + Backend]
+├── OpenBot\                                       [Web-App: Frontend + Backend]
 │   ├── app\                                       (React 19, Vite, Tailwind CSS v4, TanStack Router)
 │   │   ├── src\routes\_authed\_app.tsx            (Zentrales Dual-Role Layout für Desktop & Web)
 │   │   ├── src\components\companies\              (LevelChromeSidebar, LabToolsNav, CompanyAgentsNav)
 │   │   ├── src\lib\desktop-bridge.ts              (IPC-Brücke zwischen Web & C# WPF)
 │   │   └── src\lib\companies\level3-tools.ts      (Tab-Ordner: Technische, Fundamentals, etc.)
-│   └── server\                                    (Hono API, PostgreSQL, Better-Auth)
-│
-└── C:\Users\Kunc GmbH\Desktop\EinfacherBrowser\   [Native Windows Chromium-Shell]
-    ├── MainWindow.xaml                            (WPF Browser-Fenster, Toolbar, Splitter)
-    ├── MainWindow.xaml.cs                         (WebView2 Management, IPC-Handler, Theme-Sync)
-    └── App.xaml.cs                                (Single-Instance Mutex, Lifecycle)
+│   ├── server\                                    (Hono API, PostgreSQL, Better-Auth)
+│   │
+│   └── EinfacherBrowser\                          [Direkt hier im Workspace verlinkt!]
+│       ├── MainWindow.xaml                        (WPF Browser-Fenster, Toolbar, Splitter)
+│       ├── MainWindow.xaml.cs                     (WebView2 Management, IPC-Handler, Theme-Sync)
+│       └── App.xaml.cs                            (Single-Instance Mutex, Lifecycle)
 ```
 
 ### Wie der Desktop-Browser funktioniert (Dual-Role WebView2):
